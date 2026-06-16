@@ -973,7 +973,7 @@ export default function AppClient() {
                     </div>
                     {(c.mine || me!.canConsultor) && editingComment?.id !== c.id && (
                       <div style={{ display: 'flex', gap: 4 }}>
-                        {c.isQuestion && me!.canConsultor && !c.mine && (
+                        {c.isQuestion && me!.canConsultor && (
                           <button
                             onClick={() => {
                               setActing('consultor');
