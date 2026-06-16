@@ -1,0 +1,241 @@
+// Consultoria Plus — esquema do banco
+// Usuários/fotos espelhados do Nexus (sync por nexus_user_id). Estudos, chamados,
+// comentários, curtidas, salvos e notificações são dados próprios deste sistema.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Usuário espelhado do diretório Nexus. PK própria; nexusUserId é a chave de upsert.
+model AppUser {
+  id           String    @id @default(uuid())
+  nexusUserId  String    @unique @map("nexus_user_id")
+  username     String?
+  name         String
+  email        String?
+  phone        String?
+  cargo        String? // role/cargo vindo do Nexus
+  department   String?
+  nexusDeptId  String?   @map("nexus_dept_id")
+  avatar       String? // data URI image/webp base64
+  status       String    @default("active") // active|vacation|away|inactive
+  hireDate     DateTime? @map("hire_date")
+  baseRole     String    @default("cliente") @map("base_role") // cliente|consultor|both (derivado do depto)
+  roleOverride String?   @map("role_override") // override manual do admin (mesma enum) ou null
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  studies       Study[]
+  comments      Comment[]
+  likes         StudyLike[]
+  saves         StudySave[]
+  tickets       Ticket[]        @relation("requester")
+  messages      TicketMessage[]
+  notifications Notification[]
+  videos        Video[]
+  videoWatches  VideoWatch[]
+  studyViews    StudyView[]
+
+  @@map("app_users")
+}
+
+/// Vídeo do YouTube exibido na página Vídeos. tab: treinamento | sugerido.
+/// source: local (cadastrado aqui) | classroom (ingerido do ClassRoom, espelho fiel).
+/// Para source=classroom, título/url são geridos pelo ClassRoom (re-sincronizam);
+/// localmente só se reclassifica a aba. sourceRef = id do CourseVideo no ClassRoom.
+model Video {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  url         String // URL do vídeo (YouTube ou Google Drive)
+  youtubeId   String?  @map("youtube_id") // id do YouTube quando aplicável; null p/ Drive
+  thumbUrl    String?  @map("thumb_url") // capa alternativa (ex.: capa do curso) p/ não-YouTube
+  tab         String   @default("treinamento") // treinamento | sugerido
+  source      String   @default("local") // local | classroom
+  sourceRef   String?  @unique @map("source_ref") // id do vídeo na origem (ClassRoom)
+  courseTitle String?  @map("course_title") // nome do curso de origem
+  sourceUrl   String?  @map("source_url") // link para abrir o curso na origem
+  authorId    String?  @map("author_id") // nulo quando ingerido (sem autor local)
+  author      AppUser? @relation(fields: [authorId], references: [id])
+  position    Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  watches     VideoWatch[]
+
+  @@index([tab])
+  @@index([source])
+  @@map("videos")
+}
+
+/// "Assistido" por usuário. Espelha o VideoProgress do ClassRoom (para vídeos
+/// source=classroom, o ato também é empurrado pro ClassRoom com auto-matrícula+XP).
+model VideoWatch {
+  videoId   String   @map("video_id")
+  userId    String   @map("user_id")
+  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  user      AppUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  watchedAt DateTime @default(now()) @map("watched_at")
+
+  @@id([videoId, userId])
+  @@map("video_watches")
+}
+
+/// Categoria de estudos/chamados — gerenciável (criar/editar) por consultor/admin.
+model Category {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  color     String   @default("#ff5c89")
+  position  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("categories")
+}
+
+model Study {
+  id         String   @id @default(uuid())
+  authorId   String   @map("author_id")
+  author     AppUser  @relation(fields: [authorId], references: [id])
+  category   String
+  title      String
+  body       String // parágrafos separados por \n\n
+  coverImage String?  @map("cover_image") // imagem de capa (webp data URI otimizado)
+  readTime   String?  @map("read_time")
+  /// Backlink do comunicado gerado no Nexus ao publicar.
+  nexusAnnouncementId String? @map("nexus_announcement_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  attachments StudyAttachment[]
+  comments    Comment[]
+  likes       StudyLike[]
+  saves       StudySave[]
+  views       StudyView[]
+
+  @@index([category])
+  @@index([createdAt])
+  @@map("studies")
+}
+
+/// Visualização ("vi este estudo"). Entra por dois caminhos:
+///  - clique no joinha dentro do Consultoria Plus, OU
+///  - ack do comunicado no Nexus (webhook /api/nexus/ack-webhook).
+/// Idempotente por (studyId, userId).
+model StudyView {
+  studyId  String   @map("study_id")
+  userId   String   @map("user_id")
+  study    Study    @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  user     AppUser  @relation(fields: [userId], references: [id])
+  viewedAt DateTime @default(now()) @map("viewed_at")
+  origin   String   @default("local") // local|nexus
+
+  @@id([studyId, userId])
+  @@index([studyId])
+  @@map("study_views")
+}
+
+model StudyAttachment {
+  id      String  @id @default(uuid())
+  studyId String  @map("study_id")
+  study   Study   @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  kind    String // file|link
+  name    String
+  meta    String?
+  url     String?
+
+  @@map("study_attachments")
+}
+
+model Comment {
+  id         String   @id @default(uuid())
+  studyId    String   @map("study_id")
+  study      Study    @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  authorId   String   @map("author_id")
+  author     AppUser  @relation(fields: [authorId], references: [id])
+  role       String // papel no momento: cliente|consultor
+  text       String
+  isQuestion Boolean  @default(false) @map("is_question")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([studyId])
+  @@map("comments")
+}
+
+model StudyLike {
+  studyId   String   @map("study_id")
+  userId    String   @map("user_id")
+  study     Study    @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  user      AppUser  @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@id([studyId, userId])
+  @@map("study_likes")
+}
+
+model StudySave {
+  studyId   String   @map("study_id")
+  userId    String   @map("user_id")
+  study     Study    @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  user      AppUser  @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@id([studyId, userId])
+  @@map("study_saves")
+}
+
+model Ticket {
+  id          String    @id @default(uuid())
+  requesterId String    @map("requester_id")
+  requester   AppUser   @relation("requester", fields: [requesterId], references: [id])
+  subject     String
+  category    String
+  status      String    @default("aberto") // aberto|andamento|respondido|fechado
+  rating      Int? // 1..5 (avaliação do cliente ao fechar)
+  ratingLabel String?   @map("rating_label")
+  closedAt    DateTime? @map("closed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  messages TicketMessage[]
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("tickets")
+}
+
+model TicketMessage {
+  id        String   @id @default(uuid())
+  ticketId  String   @map("ticket_id")
+  ticket    Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId  String   @map("author_id")
+  author    AppUser  @relation(fields: [authorId], references: [id])
+  role      String // cliente|consultor
+  text      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([ticketId])
+  @@map("ticket_messages")
+}
+
+/// Notificações geradas por eventos (comentário/pergunta, resposta de chamado, etc.)
+model Notification {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  user       AppUser  @relation(fields: [userId], references: [id])
+  kind       String // pergunta|chamado|estudo|curtida|resposta
+  title      String
+  body       String
+  targetType String?  @map("target_type") // study|ticket
+  targetId   String?  @map("target_id")
+  read       Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([userId, read])
+  @@map("notifications")
+}
