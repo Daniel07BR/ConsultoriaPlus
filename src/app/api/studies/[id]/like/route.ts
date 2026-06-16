@@ -21,3 +21,19 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   const likes = await prisma.studyLike.count({ where: { studyId: id } });
   return NextResponse.json({ liked, likes });
 }
+
+// Lista quem curtiu o estudo (nome + foto), do mais recente ao mais antigo.
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const me = await requireUser();
+  if (me instanceof NextResponse) return me;
+  const { id } = await params;
+  const rows = await prisma.studyLike.findMany({
+    where: { studyId: id },
+    orderBy: { createdAt: 'desc' },
+    include: { user: { select: { name: true, avatar: true, department: true } } },
+  });
+  return NextResponse.json({
+    total: rows.length,
+    users: rows.map((r) => ({ name: r.user.name, avatar: r.user.avatar, department: r.user.department })),
+  });
+}

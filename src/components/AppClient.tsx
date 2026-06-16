@@ -19,6 +19,65 @@ function attIcon(kind: string, size = 15) {
   return <IconLink size={size} stroke="var(--accent)" />;
 }
 
+// Botão de curtir com popover ao passar o mouse mostrando quem curtiu.
+function LikesHoverButton({
+  studyId, count, liked, onToggle, style, label,
+}: {
+  studyId: string; count: number; liked: boolean; onToggle: () => void;
+  style: React.CSSProperties; label?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [users, setUsers] = useState<{ name: string; avatar: string | null; department: string | null }[] | null>(null);
+  const loadedFor = useRef<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (loadedFor.current === `${studyId}:${count}`) return;
+    try {
+      const d = await getJSON<{ users: { name: string; avatar: string | null; department: string | null }[] }>(`/api/studies/${studyId}/like`);
+      setUsers(d.users);
+      loadedFor.current = `${studyId}:${count}`;
+    } catch { /* silencioso */ }
+  }, [studyId, count]);
+
+  return (
+    <div
+      style={{ position: 'relative', display: 'inline-flex' }}
+      onMouseEnter={() => { setOpen(true); void load(); }}
+      onMouseLeave={() => setOpen(false)}
+    >
+      <button onClick={onToggle} style={style}>
+        <IconHeart size={label ? 19 : 18} fill={liked ? 'var(--accent)' : 'none'} stroke={liked ? 'var(--accent)' : 'currentColor'} />
+        {label ? `${count} ${label}` : count}
+      </button>
+      {open && count > 0 && (
+        <div
+          style={{
+            position: 'absolute', bottom: 'calc(100% + 8px)', left: 0, zIndex: 40,
+            minWidth: 200, maxWidth: 280, maxHeight: 260, overflowY: 'auto',
+            background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
+            boxShadow: '0 14px 36px var(--shadow)', padding: '10px 12px',
+            animation: 'cpFade .15s ease',
+          }}
+        >
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8 }}>
+            Curtiram ({count})
+          </div>
+          {!users && <div style={{ fontSize: 13, color: 'var(--fg3)' }}>Carregando…</div>}
+          {users && users.map((u, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '4px 0' }}>
+              <Avatar name={u.name} avatar={u.avatar} size={26} role="cliente" />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.name}</div>
+                {u.department && <div style={{ fontSize: 11, color: 'var(--fg3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.department}</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // corações da avaliação (1..5), n preenchidos
 function Hearts({ n, size = 16 }: { n: number; size?: number }) {
   return (
@@ -779,9 +838,7 @@ export default function AppClient() {
           </div>
         )}
         <footer style={{ display: 'flex', alignItems: 'center', gap: 6, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-          <button onClick={() => toggleLike(s.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 12px', borderRadius: 10, border: 'none', background: 'transparent', cursor: 'pointer', fontWeight: 700, fontSize: 13.5, color: s.liked ? 'var(--accent)' : 'var(--fg2)' }}>
-            <IconHeart size={18} fill={s.liked ? 'var(--accent)' : 'none'} stroke={s.liked ? 'var(--accent)' : 'currentColor'} />{s.likes}
-          </button>
+          <LikesHoverButton studyId={s.id} count={s.likes} liked={s.liked} onToggle={() => toggleLike(s.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 12px', borderRadius: 10, border: 'none', background: 'transparent', cursor: 'pointer', fontWeight: 700, fontSize: 13.5, color: s.liked ? 'var(--accent)' : 'var(--fg2)' }} />
           <button onClick={() => openViews(s.id, s.title)} title="Marcar como visualizado e ver quem viu" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 12px', borderRadius: 10, border: 'none', background: 'transparent', cursor: 'pointer', fontWeight: 700, fontSize: 13.5, color: s.viewed ? 'var(--accent)' : 'var(--fg2)' }}>
             <IconThumbsUp size={18} fill={s.viewed ? 'var(--accent)' : 'none'} stroke={s.viewed ? 'var(--accent)' : 'currentColor'} />{s.views}
           </button>
@@ -926,7 +983,7 @@ export default function AppClient() {
             </div>
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 26, paddingTop: 22, borderTop: '1px solid var(--border)' }}>
-            <button onClick={() => toggleLike(s.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontWeight: 700, fontSize: 14, color: s.liked ? 'var(--accent)' : 'var(--fg2)' }}><IconHeart size={19} fill={s.liked ? 'var(--accent)' : 'none'} stroke={s.liked ? 'var(--accent)' : 'currentColor'} />{s.likes} curtidas</button>
+            <LikesHoverButton studyId={s.id} count={s.likes} liked={s.liked} onToggle={() => toggleLike(s.id)} label="curtidas" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontWeight: 700, fontSize: 14, color: s.liked ? 'var(--accent)' : 'var(--fg2)' }} />
             <button onClick={() => openViews(s.id, s.title)} title="Marcar como visualizado e ver quem viu" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontWeight: 700, fontSize: 14, color: s.viewed ? 'var(--accent)' : 'var(--fg2)' }}><IconThumbsUp size={19} fill={s.viewed ? 'var(--accent)' : 'none'} stroke={s.viewed ? 'var(--accent)' : 'currentColor'} />{s.views} visualizações</button>
             <button onClick={() => toggleSave(s.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontWeight: 700, fontSize: 14, color: s.saved ? 'var(--accent)' : 'var(--fg2)' }}><IconBookmark size={18} fill={s.saved ? 'var(--accent)' : 'none'} stroke={s.saved ? 'var(--accent)' : 'currentColor'} />{s.saved ? 'Salvo' : 'Salvar estudo'}</button>
             {me!.canConsultor && (
