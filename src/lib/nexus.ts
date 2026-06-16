@@ -141,6 +141,9 @@ export interface PushAnnouncementInput {
   linkLabel?: string;
   recipientEmployeeIds?: string[];
   sourceRef: string;
+  // Quando true, o alerta (pessoal) aparece no sino de QUALQUER sistema onde o
+  // destinatário estiver — não só no Consultoria Plus + Nexus.
+  crossSystem?: boolean;
 }
 
 /**

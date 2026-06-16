@@ -3,6 +3,7 @@ import { requireUser } from '@/lib/api';
 import { prisma } from '@/lib/db';
 import { listTickets } from '@/lib/queries';
 import { notifyNewTicket } from '@/lib/notify';
+import { notifyNexusNeedsAnswer } from '@/lib/notify-nexus';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,5 +36,15 @@ export async function POST(req: NextRequest) {
     },
   });
   await notifyNewTicket(ticket.id, subject, { id: me.user.id, name: me.user.name });
+
+  // Alerta cross-system à equipe de consultores (sino em qualquer sistema).
+  void notifyNexusNeedsAnswer({
+    kind: 'chamado',
+    refId: ticket.id,
+    title: subject,
+    requesterNexusUserId: me.user.nexusUserId,
+    requesterAppUserId: me.user.id,
+    requesterName: me.user.name,
+  });
   return NextResponse.json({ id: ticket.id });
 }
