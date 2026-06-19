@@ -20,6 +20,7 @@ export interface SsoUser {
   department?: string;
   departmentId?: string;
   avatar?: string | null;
+  passwordHash?: string | null; // hash bcrypt da senha Nexus
 }
 
 export type SsoResolve =
@@ -53,12 +54,14 @@ export interface NexusUser {
   status: string;
   hireDate: string | null;
   avatar: string | null;
+  passwordHash?: string | null; // hash bcrypt da senha Nexus (?includePassword=true)
 }
 
 /** Apenas funcionários COM liberação para este sistema, com foto. */
 export async function fetchNexusUsers(includeInactive = true): Promise<NexusUser[]> {
   const url = new URL(`${BASE}/api/integrations/users`);
   if (includeInactive) url.searchParams.set('includeInactive', 'true');
+  url.searchParams.set('includePassword', 'true'); // traz o hash bcrypt p/ espelhar
   const res = await fetch(url, { headers: headers(), cache: 'no-store' });
   if (!res.ok) throw new Error(`Nexus /users ${res.status}`);
   return (await res.json()) as NexusUser[];

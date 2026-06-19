@@ -23,6 +23,7 @@ model AppUser {
   department   String?
   nexusDeptId  String?   @map("nexus_dept_id")
   avatar       String? // data URI image/webp base64
+  passwordHash String?   @map("password_hash") // hash bcrypt da senha Nexus (espelho); login local offline
   status       String    @default("active") // active|vacation|away|inactive
   hireDate     DateTime? @map("hire_date")
   baseRole     String    @default("cliente") @map("base_role") // cliente|consultor|both (derivado do depto)

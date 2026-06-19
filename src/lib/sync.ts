@@ -40,10 +40,15 @@ export async function syncUsersFromNexus(): Promise<SyncResult> {
     });
 
     if (existing) {
-      await prisma.appUser.update({ where: { nexusUserId: u.employeeId }, data });
+      await prisma.appUser.update({
+        where: { nexusUserId: u.employeeId },
+        data: { ...data, passwordHash: u.passwordHash ?? undefined },
+      });
       updated++;
     } else {
-      await prisma.appUser.create({ data: { nexusUserId: u.employeeId, ...data } });
+      await prisma.appUser.create({
+        data: { nexusUserId: u.employeeId, ...data, passwordHash: u.passwordHash ?? null },
+      });
       created++;
     }
   }

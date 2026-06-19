@@ -18,6 +18,35 @@ export default function LoginClient({ portalUrl, devLogin }: { portalUrl: string
   const [sel, setSel] = useState('');
   const [busy, setBusy] = useState(false);
 
+  // Login por senha (senha unica do Nexus). Valida o hash bcrypt espelhado.
+  const [user, setUser] = useState('');
+  const [pass, setPass] = useState('');
+  const [pwBusy, setPwBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  async function doPasswordLogin(e: React.FormEvent) {
+    e.preventDefault();
+    if (!user || !pass) return;
+    setErr('');
+    setPwBusy(true);
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: user, password: pass }),
+      });
+      if (!res.ok) {
+        setErr(res.status === 429 ? 'Muitas tentativas. Aguarde alguns minutos.' : 'Usuario ou senha invalidos.');
+        setPwBusy(false);
+        return;
+      }
+      window.location.href = '/';
+    } catch {
+      setErr('Falha de conexao. Tente novamente.');
+      setPwBusy(false);
+    }
+  }
+
   useEffect(() => {
     if (devLogin) getJSON<{ users: DevUser[] }>('/api/dev-login').then((d) => setUsers(d.users)).catch(() => {});
   }, [devLogin]);
@@ -63,6 +92,42 @@ export default function LoginClient({ portalUrl, devLogin }: { portalUrl: string
         <div style={{ width: '100%', maxWidth: 400 }}>
           <h2 className="font-grotesk" style={{ fontWeight: 700, fontSize: 28, letterSpacing: '-0.02em', margin: '0 0 6px', color: 'var(--fg)' }}>Bem-vindo</h2>
           <p style={{ margin: '0 0 28px', color: 'var(--fg2)', fontSize: 15 }}>Acesse com sua conta do Nexus para continuar.</p>
+
+          <form onSubmit={doPasswordLogin} style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 22 }}>
+            <input
+              type="text"
+              value={user}
+              onChange={(e) => setUser(e.target.value)}
+              placeholder="Usuario ou e-mail"
+              autoComplete="username"
+              style={{ width: '100%', padding: '13px 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--fg)', fontSize: 14, boxSizing: 'border-box' }}
+            />
+            <input
+              type="password"
+              value={pass}
+              onChange={(e) => setPass(e.target.value)}
+              placeholder="Senha"
+              autoComplete="current-password"
+              style={{ width: '100%', padding: '13px 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--fg)', fontSize: 14, boxSizing: 'border-box' }}
+            />
+            {err && <div style={{ color: '#e0245e', fontSize: 13, fontWeight: 600 }}>{err}</div>}
+            <button
+              type="submit"
+              disabled={!user || !pass || pwBusy}
+              style={{ width: '100%', padding: 14, borderRadius: 13, border: 'none', background: 'var(--accent)', color: '#fff', fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: 15, cursor: !user || !pass ? 'not-allowed' : 'pointer', opacity: !user || !pass ? 0.6 : 1, boxShadow: '0 8px 22px var(--accent-soft)' }}
+            >
+              {pwBusy ? 'Entrando...' : 'Entrar'}
+            </button>
+            <p style={{ margin: 0, textAlign: 'center', fontSize: 12.5, color: 'var(--fg3)' }}>
+              Esqueceu a senha? Procure a T.I
+            </p>
+          </form>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '0 0 18px' }}>
+            <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+            <span style={{ fontSize: 12, color: 'var(--fg3)', fontWeight: 600 }}>ou</span>
+            <span style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+          </div>
 
           <a href={portalUrl} style={{ display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'center', gap: 9, padding: 14, borderRadius: 13, border: 'none', background: 'var(--accent)', color: '#fff', fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: 15, cursor: 'pointer', textDecoration: 'none', boxShadow: '0 8px 22px var(--accent-soft)' }}>
             Entrar pelo Nexus

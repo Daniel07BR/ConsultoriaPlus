@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { SESSION_COOKIE } from '@/lib/session';
 
-const PUBLIC = ['/sso', '/login', '/sem-acesso', '/api/dev-login'];
+const PUBLIC = ['/sso', '/login', '/sem-acesso', '/api/dev-login', '/api/auth/login', '/api/integrations'];
 
 export function middleware(req: NextRequest) {
   const { pathname, searchParams } = req.nextUrl;

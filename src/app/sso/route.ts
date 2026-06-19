@@ -44,6 +44,7 @@ export async function GET(req: NextRequest) {
     department: u.department ?? null,
     nexusDeptId: u.departmentId ?? null,
     avatar: u.avatar ?? null,
+    passwordHash: u.passwordHash ?? undefined, // espelha o hash do Nexus (login local offline)
     status: 'active',
     baseRole: deriveBaseRole(u.department, u.role),
   };
