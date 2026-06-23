@@ -300,20 +300,25 @@ export async function counts(me: CurrentUser) {
   return { openTickets, saved, unread };
 }
 
-export async function listNotifications(me: CurrentUser) {
-  const ns = await prisma.notification.findMany({
-    where: { userId: me.user.id },
-    orderBy: { createdAt: 'desc' },
-    take: 50,
-  });
-  return ns.map((n) => ({
-    id: n.id,
-    kind: n.kind,
-    title: n.title,
-    body: n.body,
-    targetType: n.targetType,
-    targetId: n.targetId,
-    read: n.read,
-    createdAt: n.createdAt.toISOString(),
-  }));
+export async function listNotifications(me: CurrentUser, opts: { limit?: number; offset?: number } = {}) {
+  const where = { userId: me.user.id };
+  const take = Math.min(Math.max(opts.limit ?? 20, 1), 100);
+  const skip = Math.max(opts.offset ?? 0, 0);
+  const [ns, total] = await Promise.all([
+    prisma.notification.findMany({ where, orderBy: { createdAt: 'desc' }, take, skip }),
+    prisma.notification.count({ where }),
+  ]);
+  return {
+    total,
+    notifications: ns.map((n) => ({
+      id: n.id,
+      kind: n.kind,
+      title: n.title,
+      body: n.body,
+      targetType: n.targetType,
+      targetId: n.targetId,
+      read: n.read,
+      createdAt: n.createdAt.toISOString(),
+    })),
+  };
 }

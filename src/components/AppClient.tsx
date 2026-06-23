@@ -139,6 +139,7 @@ interface NotifT { id: string; kind: string; title: string; body: string; target
 interface VideoT { id: string; title: string; description: string | null; url: string; youtubeId: string | null; thumbUrl: string | null; tab: string; source: string; courseTitle: string | null; sourceUrl: string | null; watched: boolean; author: { name: string; avatar: string | null } | null; createdAt: string }
 
 const chipBase: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 15px', borderRadius: 999, fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all .15s ease' };
+const PAGE_NOTIF = 20; // tamanho da página de notificações
 
 // Assinatura do chamado p/ o polling: muda se título, citação, status ou qualquer
 // mensagem (texto/edição/exclusão) mudar — não só a quantidade de mensagens.
@@ -161,6 +162,7 @@ export default function AppClient() {
   const [tickets, setTickets] = useState<TicketCard[]>([]);
   const [activeTicket, setActiveTicket] = useState<TicketDetailT | null>(null);
   const [notifications, setNotifications] = useState<NotifT[]>([]);
+  const [notifTotal, setNotifTotal] = useState(0);
   const [viewsModal, setViewsModal] = useState<{ studyId: string; title: string; data: ViewsPayload | null } | null>(null);
   const [auditModal, setAuditModal] = useState<{ number: number; items: AuditItemT[] | null } | null>(null);
   const [readsModal, setReadsModal] = useState<{ preview: string; items: ReadReceiptT[] } | null>(null);
@@ -169,6 +171,7 @@ export default function AppClient() {
   // Refs com o estado de edição mais recente — lidos dentro do polling sem recriar timers.
   const editingMessageRef = useRef<{ id: string; text: string } | null>(null);
   const editingTicketRef = useRef<{ subject: string } | null>(null);
+  const notifCountRef = useRef(0);
 
   const [filter, setFilter] = useState('Todos');
   const [search, setSearch] = useState('');
@@ -247,9 +250,15 @@ export default function AppClient() {
   }, []);
 
   const loadNotifications = useCallback(async () => {
-    const d = await getJSON<{ notifications: NotifT[] }>('/api/notifications');
+    const d = await getJSON<{ notifications: NotifT[]; total: number }>(`/api/notifications?limit=${PAGE_NOTIF}&offset=0`);
     setNotifications(d.notifications);
+    setNotifTotal(d.total);
   }, []);
+  const loadMoreNotifications = async () => {
+    const d = await getJSON<{ notifications: NotifT[]; total: number }>(`/api/notifications?limit=${PAGE_NOTIF}&offset=${notifications.length}`);
+    setNotifications((prev) => [...prev, ...d.notifications]);
+    setNotifTotal(d.total);
+  };
 
   const loadVideos = useCallback(async (tab: string) => {
     const d = await getJSON<{ videos: VideoT[] }>(`/api/videos?tab=${tab}`);
@@ -273,6 +282,7 @@ export default function AppClient() {
 
   editingMessageRef.current = editingMessage;
   editingTicketRef.current = editingTicket;
+  notifCountRef.current = notifications.length;
 
   // ---- polling em tempo real ----------------------------------------
   // Atualiza notificações/contadores sempre (10s); feed quando está no feed
@@ -313,7 +323,8 @@ export default function AppClient() {
       }), 8000));
     }
     // Lista de notificações se está aberta
-    if (view === 'notifications') timers.push(setInterval(safe(loadNotifications), 12000));
+    // Atualiza a lista só quando está na 1ª página (não reseta quem clicou em "Carregar mais").
+    if (view === 'notifications') timers.push(setInterval(safe(() => { if (notifCountRef.current <= PAGE_NOTIF) loadNotifications(); }), 12000));
     // Lista de chamados se está aberta
     if (view === 'tickets') timers.push(setInterval(safe(() => loadTickets(ticketFilter)), 15000));
     return () => { cancelled = true; timers.forEach(clearInterval); };
@@ -1736,6 +1747,12 @@ export default function AppClient() {
           ))}
           {notifications.length === 0 && <div style={{ textAlign: 'center', padding: '50px 20px', color: 'var(--fg3)', fontSize: 14 }}>Nenhuma notificação por enquanto.</div>}
         </div>
+        {notifications.length < notifTotal && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginTop: 18 }}>
+            <button onClick={loadMoreNotifications} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 22px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg2)', fontWeight: 700, fontSize: 13.5, cursor: 'pointer' }}><IconRefresh size={15} sw={2.2} /> Carregar mais</button>
+            <span style={{ fontSize: 12, color: 'var(--fg3)' }}>{notifications.length} de {notifTotal}</span>
+          </div>
+        )}
       </div>
     );
   }
