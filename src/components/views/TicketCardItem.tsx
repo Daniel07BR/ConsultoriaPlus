@@ -1,0 +1,40 @@
+'use client';
+// Card de chamado nas listas (fila/meus/histórico). Era `tCard` em AppClient (Fase 2).
+import Avatar from '../Avatar';
+import { Hearts } from '../ui/Hearts';
+import { IconComment, IconArrowRight } from '../icons';
+import { ticketNumChip } from '../ui/formKit';
+import { statusMeta, timeAgo } from '@/lib/present';
+import { useApp } from '../AppProvider';
+import type { TicketCard } from '@/lib/types';
+
+export function TicketCardItem({ t }: { t: TicketCard }) {
+  const { openTicket, colorOf } = useApp();
+  const sm = statusMeta(t.status);
+  return (
+    <button onClick={() => openTicket(t.id)} style={{ textAlign: 'left', color: 'var(--fg)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 1px 3px var(--shadow)', padding: '22px 24px', cursor: 'pointer' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+        <Avatar name={t.author.name} avatar={t.author.avatar} size={44} role="cliente" />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: 700, fontSize: 14.5, whiteSpace: 'nowrap' }}>{t.author.name}</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '2px 10px', borderRadius: 999, background: sm.tint, color: sm.text, fontSize: 10.5, fontWeight: 700, letterSpacing: '.03em', whiteSpace: 'nowrap' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: sm.dot }} />{sm.label}</span>
+            {t.status === 'fechado' && t.rating && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 700, color: 'var(--accent)' }}><Hearts n={t.rating} size={13} /> {t.ratingLabel}</span>}
+          </div>
+          <div style={{ fontSize: 12.5, color: 'var(--fg3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Cliente · {timeAgo(t.createdAt)} · {t.msgCount} {t.msgCount === 1 ? 'mensagem' : 'mensagens'}</div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={ticketNumChip} title={`Chamado nº ${t.number}`}>#{t.number}</span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '6px 12px', borderRadius: 999, background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 12, fontWeight: 700, color: 'var(--fg2)' }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: colorOf(t.category) }} />{t.category}</span>
+        </div>
+      </div>
+      <div className="font-grotesk" style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.015em', lineHeight: 1.25, margin: '0 0 8px' }}>{t.subject}</div>
+      <p style={{ margin: '0 0 16px', color: 'var(--fg2)', fontSize: 14.5, lineHeight: 1.6 }}>{t.lastPreview}</p>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontWeight: 700, fontSize: 13.5, color: 'var(--fg2)' }}><IconComment size={18} />{t.msgCount} {t.msgCount === 1 ? 'mensagem' : 'mensagens'}</span>
+        <div style={{ flex: 1 }} />
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 10, background: 'var(--accent-soft)', color: 'var(--accent)', fontWeight: 700, fontSize: 13, fontFamily: "'Space Grotesk',sans-serif" }}>Ver conversa<IconArrowRight size={15} sw={2.4} /></span>
+      </div>
+    </button>
+  );
+}
