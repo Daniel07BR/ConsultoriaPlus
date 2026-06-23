@@ -12,166 +12,18 @@ import {
   IconThumbsUp, IconEdit, IconCheckDouble,
 } from './icons';
 
-// ícone do anexo conforme o tipo de link
-function attIcon(kind: string, size = 15) {
-  if (kind === 'video') return <IconPlay size={size} fill="var(--accent)" stroke="var(--accent)" />;
-  if (kind === 'drive' || kind === 'file') return <IconFile size={size} stroke="var(--accent)" />;
-  return <IconLink size={size} stroke="var(--accent)" />;
-}
+import { attIcon } from './ui/attIcon';
+import { Hearts } from './ui/Hearts';
+import { LikesHoverButton } from './ui/LikesHoverButton';
+import { chipBase, labelStyle, inputStyle, attachPill, miniBtn, dateInput, pillX, ticketNumChip, Field } from './ui/formKit';
+import { urlForView, parseUrl } from '@/lib/url';
+import { ticketSig } from '@/lib/ticketSig';
+import type {
+  View, Acting, Me, StudyCard, ViewsPayload, StudyDetailT, TicketCard,
+  ReadReceiptT, TicketRefT, AuditItemT, TicketDetailT, NotifT, VideoT,
+} from '@/lib/types';
 
-// Botão de curtir com popover ao passar o mouse mostrando quem curtiu.
-function LikesHoverButton({
-  studyId, count, liked, onToggle, style, label,
-}: {
-  studyId: string; count: number; liked: boolean; onToggle: () => void;
-  style: React.CSSProperties; label?: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const [users, setUsers] = useState<{ name: string; avatar: string | null; department: string | null }[] | null>(null);
-  const loadedFor = useRef<string | null>(null);
-
-  const load = useCallback(async () => {
-    if (loadedFor.current === `${studyId}:${count}`) return;
-    try {
-      const d = await getJSON<{ users: { name: string; avatar: string | null; department: string | null }[] }>(`/api/studies/${studyId}/like`);
-      setUsers(d.users);
-      loadedFor.current = `${studyId}:${count}`;
-    } catch { /* silencioso */ }
-  }, [studyId, count]);
-
-  return (
-    <div
-      style={{ position: 'relative', display: 'inline-flex' }}
-      onMouseEnter={() => { setOpen(true); void load(); }}
-      onMouseLeave={() => setOpen(false)}
-    >
-      <button onClick={onToggle} style={style}>
-        <IconHeart size={label ? 19 : 18} fill={liked ? 'var(--accent)' : 'none'} stroke={liked ? 'var(--accent)' : 'currentColor'} />
-        {label ? `${count} ${label}` : count}
-      </button>
-      {open && count > 0 && (
-        <div
-          style={{
-            position: 'absolute', bottom: 'calc(100% + 8px)', left: 0, zIndex: 40,
-            minWidth: 200, maxWidth: 280, maxHeight: 260, overflowY: 'auto',
-            background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
-            boxShadow: '0 14px 36px var(--shadow)', padding: '10px 12px',
-            animation: 'cpFade .15s ease',
-          }}
-        >
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 8 }}>
-            Curtiram ({count})
-          </div>
-          {!users && <div style={{ fontSize: 13, color: 'var(--fg3)' }}>Carregando…</div>}
-          {users && users.map((u, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '4px 0' }}>
-              <Avatar name={u.name} avatar={u.avatar} size={26} role="cliente" />
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.name}</div>
-                {u.department && <div style={{ fontSize: 11, color: 'var(--fg3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.department}</div>}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// corações da avaliação (1..5), n preenchidos
-function Hearts({ n, size = 16 }: { n: number; size?: number }) {
-  return (
-    <span style={{ display: 'inline-flex', gap: 2 }}>
-      {[1, 2, 3, 4, 5].map((i) => (
-        <IconHeart key={i} size={size} fill={i <= n ? 'var(--accent)' : 'none'} stroke={i <= n ? 'var(--accent)' : 'var(--fg3)'} />
-      ))}
-    </span>
-  );
-}
-
-type View = 'feed' | 'saved' | 'study' | 'compose' | 'tickets' | 'ticket' | 'newticket' | 'notifications' | 'profile' | 'videos';
-type Acting = 'cliente' | 'consultor';
-
-interface Me {
-  user: { id: string; name: string; cargo: string | null; department: string | null; avatar: string | null };
-  role: 'cliente' | 'consultor' | 'both';
-  canConsultor: boolean;
-  canSwitch: boolean;
-  defaultView: Acting;
-  counts: { openTickets: number; saved: number; unread: number };
-  categories: CategoryT[];
-}
-interface CategoryT { id: string; name: string; color: string }
-interface Attachment { kind: string; name: string; meta: string | null; url: string | null }
-interface StudyCard {
-  id: string; title: string; category: string; excerpt: string; coverImage: string | null; readTime: string | null; createdAt: string;
-  author: { name: string; title: string | null; avatar: string | null; department: string | null };
-  likes: number; liked: boolean; saved: boolean; commentCount: number; attachments: Attachment[];
-  views: number; viewed: boolean;
-}
-interface ViewsPayload {
-  total: number;
-  viewedByMe: boolean;
-  departments: { department: string; users: { name: string; avatar: string | null; cargo: string | null; viewedAt: string }[] }[];
-}
-interface CommentT { id: string; author: { name: string; avatar: string | null; department: string | null }; role: string; text: string; isQuestion: boolean; mine: boolean; createdAt: string }
-interface StudyDetailT extends Omit<StudyCard, 'excerpt'> { body: string[]; comments: CommentT[] }
-interface TicketCard {
-  id: string; number: number; subject: string; category: string; status: string; rating: number | null; ratingLabel: string | null; createdAt: string;
-  author: { name: string; avatar: string | null; department: string | null }; msgCount: number; lastPreview: string;
-}
-interface ReadReceiptT { name: string; avatar: string | null; role: string; readAt: string }
-interface MessageT {
-  id: string; author: { name: string; avatar: string | null; department: string | null }; role: string; text: string; mine: boolean; createdAt: string;
-  edited: boolean; deleted: boolean; deletedReason: string | null; deletedByName: string | null; deletedAt: string | null;
-  reads: ReadReceiptT[];
-}
-interface TicketRefT { id: string; number: number; subject: string; status: string; createdAt: string; author: { name: string; avatar: string | null } }
-interface AuditItemT { id: string; action: string; previousText: string; newText: string | null; reason: string | null; editorName: string; editorRole: string; messageAuthor: string | null; messageRole: string | null; createdAt: string }
-interface TicketDetailT {
-  id: string; number: number; subject: string; category: string; status: string; createdAt: string;
-  rating: number | null; ratingLabel: string | null; closedAt: string | null;
-  reference: { id: string; number: number; subject: string } | null;
-  canReply: boolean; canClose: boolean; canEdit: boolean; auditCount: number;
-  author: { name: string; avatar: string | null; department: string | null }; messages: MessageT[];
-}
-interface NotifT { id: string; kind: string; title: string; body: string; targetType: string | null; targetId: string | null; read: boolean; createdAt: string }
-interface VideoT { id: string; title: string; description: string | null; url: string; youtubeId: string | null; thumbUrl: string | null; tab: string; source: string; courseTitle: string | null; sourceUrl: string | null; watched: boolean; author: { name: string; avatar: string | null } | null; createdAt: string }
-
-const chipBase: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 15px', borderRadius: 999, fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all .15s ease' };
 const PAGE_NOTIF = 20; // tamanho da página de notificações
-
-// ---- sincronização da tela com a URL (deep-link, F5, voltar/avançar) ----
-const VIEW_SLUG: Record<View, string> = {
-  feed: 'feed', saved: 'salvos', study: 'estudo', compose: 'publicar',
-  tickets: 'chamados', ticket: 'chamado', newticket: 'novo-chamado',
-  notifications: 'notificacoes', profile: 'perfil', videos: 'videos',
-};
-const SLUG_VIEW: Record<string, View> = Object.fromEntries(
-  Object.entries(VIEW_SLUG).map(([v, slug]) => [slug, v as View]),
-);
-function urlForView(view: View, id?: string): string {
-  const slug = VIEW_SLUG[view] || 'feed';
-  const p = new URLSearchParams();
-  if (slug !== 'feed') p.set('v', slug);
-  if (id && (view === 'ticket' || view === 'study')) p.set('id', id);
-  const qs = p.toString();
-  return qs ? `/?${qs}` : '/';
-}
-function parseUrl(search: string): { view: View; id?: string } {
-  const p = new URLSearchParams(search);
-  const view = SLUG_VIEW[p.get('v') || 'feed'] || 'feed';
-  return { view, id: p.get('id') || undefined };
-}
-
-// Assinatura do chamado p/ o polling: muda se título, citação, status ou qualquer
-// mensagem (texto/edição/exclusão) mudar — não só a quantidade de mensagens.
-function ticketSig(t: TicketDetailT): string {
-  return JSON.stringify({
-    s: t.subject, r: t.reference?.id ?? null, st: t.status,
-    m: t.messages.map((m) => [m.id, m.text, m.edited, m.deleted, m.deletedReason, m.reads.length]),
-  });
-}
 
 export default function AppClient() {
   const [me, setMe] = useState<Me | null>(null);
@@ -1880,18 +1732,4 @@ export default function AppClient() {
       </div>
     );
   }
-}
-
-// ---- pequenos helpers de form ----
-const labelStyle: React.CSSProperties = { display: 'block', fontWeight: 700, fontSize: 13, color: 'var(--fg2)', marginBottom: 8 };
-function inputStyle(grotesk = false): React.CSSProperties {
-  return { width: '100%', padding: '13px 15px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--fg)', fontSize: grotesk ? 15 : 14.5, fontFamily: grotesk ? "'Space Grotesk',sans-serif" : undefined, fontWeight: grotesk ? 600 : undefined, outline: 'none' };
-}
-const attachPill: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 9, padding: '8px 10px 8px 13px', borderRadius: 11, background: 'var(--accent-soft)', color: 'var(--accent)', fontSize: 12.5, fontWeight: 700 };
-const miniBtn: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', padding: '4px 9px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg2)', fontWeight: 700, fontSize: 11.5, cursor: 'pointer' };
-const dateInput: React.CSSProperties = { padding: '8px 11px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg)', fontSize: 13, outline: 'none', colorScheme: 'light' as React.CSSProperties['colorScheme'] };
-const pillX: React.CSSProperties = { display: 'inline-flex', border: 'none', background: 'transparent', color: 'var(--accent)', cursor: 'pointer', padding: 0, marginLeft: 2 };
-const ticketNumChip: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', padding: '4px 9px', borderRadius: 8, background: 'var(--accent)', color: '#fff', fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: 12, letterSpacing: '.01em', flexShrink: 0 };
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (<div><label style={labelStyle}>{label}</label>{children}</div>);
 }
