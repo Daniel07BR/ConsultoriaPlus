@@ -475,6 +475,10 @@ function useAppState() {
     await postJSON(`/api/tickets/${activeTicket.id}/messages`, { text, actingRole: acting });
     setTicketDraft('');
     flashMsg('Mensagem enviada');
+    // Responder implica ter lido a conversa: marca as mensagens da outra ponta como
+    // "visto" de forma garantida (não depende do timing do polling nem de cliente
+    // atualizado). Espera concluir antes de recarregar p/ o recibo já vir no reload.
+    try { await postJSON(`/api/tickets/${activeTicket.id}/seen`); } catch { /* silencioso */ }
     const d = await getJSON<{ ticket: TicketDetailT }>(`/api/tickets/${activeTicket.id}`);
     setActiveTicket(d.ticket);
     refreshMe();
