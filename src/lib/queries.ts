@@ -187,6 +187,7 @@ export async function getTicket(me: CurrentUser, id: string) {
   if (!t) return null;
   const isOwner = t.requesterId === me.user.id;
   const isClosed = t.status === 'fechado';
+  const auditCount = await prisma.ticketMessageRevision.count({ where: { ticketId: t.id } });
 
   return {
     id: t.id,
@@ -203,15 +204,47 @@ export async function getTicket(me: CurrentUser, id: string) {
     // Responder: dono ou consultor, e não fechado. Avaliar/fechar: só o dono, se ainda não fechou.
     canReply: (isOwner || me.canConsultor) && !isClosed,
     canClose: isOwner && !isClosed,
-    messages: t.messages.map((m) => ({
-      id: m.id,
-      author: { name: m.author.name, avatar: m.author.avatar, department: m.author.department },
-      role: m.role,
-      text: m.text,
-      mine: m.authorId === me.user.id,
-      createdAt: m.createdAt.toISOString(),
-    })),
+    auditCount, // só interessa ao consultor; controla o botão Auditoria no client
+    messages: t.messages.map((m) => {
+      const deleted = !!m.deletedAt;
+      // Conteúdo de mensagem excluída é legível só pelo consultor; cliente vê o aviso.
+      const showText = !deleted || me.canConsultor;
+      return {
+        id: m.id,
+        author: { name: m.author.name, avatar: m.author.avatar, department: m.author.department },
+        role: m.role,
+        text: showText ? m.text : '',
+        edited: !!m.editedAt,
+        deleted,
+        deletedReason: deleted ? m.deleteReason : null,
+        deletedByName: deleted ? m.deletedByName : null,
+        deletedAt: m.deletedAt ? m.deletedAt.toISOString() : null,
+        mine: m.authorId === me.user.id,
+        createdAt: m.createdAt.toISOString(),
+      };
+    }),
   };
+}
+
+/** Trilha de auditoria de um chamado (edições/exclusões de mensagens), mais recente primeiro. */
+export async function ticketAudit(ticketId: string) {
+  const revs = await prisma.ticketMessageRevision.findMany({
+    where: { ticketId },
+    orderBy: { createdAt: 'desc' },
+    include: { message: { select: { author: { select: { name: true } }, role: true } } },
+  });
+  return revs.map((r) => ({
+    id: r.id,
+    action: r.action, // edit | delete
+    previousText: r.previousText,
+    newText: r.newText,
+    reason: r.reason,
+    editorName: r.editorName,
+    editorRole: r.editorRole,
+    messageAuthor: r.message?.author?.name ?? null,
+    messageRole: r.message?.role ?? null,
+    createdAt: r.createdAt.toISOString(),
+  }));
 }
 
 /** Busca enxuta p/ citar um chamado anterior: por número (#123 ou 123) ou palavra-chave no título.
