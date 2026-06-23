@@ -120,13 +120,17 @@ interface TicketCard {
   id: string; number: number; subject: string; category: string; status: string; rating: number | null; ratingLabel: string | null; createdAt: string;
   author: { name: string; avatar: string | null; department: string | null }; msgCount: number; lastPreview: string;
 }
-interface MessageT { id: string; author: { name: string; avatar: string | null; department: string | null }; role: string; text: string; mine: boolean; createdAt: string }
+interface MessageT {
+  id: string; author: { name: string; avatar: string | null; department: string | null }; role: string; text: string; mine: boolean; createdAt: string;
+  edited: boolean; deleted: boolean; deletedReason: string | null; deletedByName: string | null; deletedAt: string | null;
+}
 interface TicketRefT { id: string; number: number; subject: string; status: string; createdAt: string; author: { name: string; avatar: string | null } }
+interface AuditItemT { id: string; action: string; previousText: string; newText: string | null; reason: string | null; editorName: string; editorRole: string; messageAuthor: string | null; messageRole: string | null; createdAt: string }
 interface TicketDetailT {
   id: string; number: number; subject: string; category: string; status: string; createdAt: string;
   rating: number | null; ratingLabel: string | null; closedAt: string | null;
   reference: { id: string; number: number; subject: string } | null;
-  canReply: boolean; canClose: boolean;
+  canReply: boolean; canClose: boolean; auditCount: number;
   author: { name: string; avatar: string | null; department: string | null }; messages: MessageT[];
 }
 interface NotifT { id: string; kind: string; title: string; body: string; targetType: string | null; targetId: string | null; read: boolean; createdAt: string }
@@ -147,6 +151,7 @@ export default function AppClient() {
   const [activeTicket, setActiveTicket] = useState<TicketDetailT | null>(null);
   const [notifications, setNotifications] = useState<NotifT[]>([]);
   const [viewsModal, setViewsModal] = useState<{ studyId: string; title: string; data: ViewsPayload | null } | null>(null);
+  const [auditModal, setAuditModal] = useState<{ number: number; items: AuditItemT[] | null } | null>(null);
 
   const [filter, setFilter] = useState('Todos');
   const [search, setSearch] = useState('');
@@ -411,14 +416,26 @@ export default function AppClient() {
     if (!text) return;
     await fetch(`/api/messages/${editingMessage.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text }) });
     setEditingMessage(null);
+    flashMsg('Mensagem editada');
     const d = await getJSON<{ ticket: TicketDetailT }>(`/api/tickets/${activeTicket.id}`);
     setActiveTicket(d.ticket);
   };
   const deleteMessage = async (id: string) => {
-    if (!activeTicket || !confirm('Excluir esta mensagem?')) return;
-    await fetch(`/api/messages/${id}`, { method: 'DELETE' });
+    if (!activeTicket) return;
+    const reason = prompt('Por que esta mensagem está sendo excluída?\nO motivo fica registrado na auditoria.');
+    if (reason === null) return; // cancelou
+    await fetch(`/api/messages/${id}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: reason.trim(), actingRole: acting }) });
+    flashMsg('Mensagem excluída');
     const d = await getJSON<{ ticket: TicketDetailT }>(`/api/tickets/${activeTicket.id}`);
     setActiveTicket(d.ticket);
+  };
+  const openAudit = async () => {
+    if (!activeTicket) return;
+    setAuditModal({ number: activeTicket.number, items: null });
+    try {
+      const d = await getJSON<{ items: AuditItemT[] }>(`/api/tickets/${activeTicket.id}/audit`);
+      setAuditModal((a) => (a ? { ...a, items: d.items } : a));
+    } catch { setAuditModal((a) => (a ? { ...a, items: [] } : a)); }
   };
 
   const uploadCover = async (file: File) => {
@@ -739,6 +756,59 @@ export default function AppClient() {
                   </div>
                 </section>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: trilha de auditoria do chamado (edições/exclusões de mensagens) */}
+      {auditModal && (
+        <div onClick={() => setAuditModal(null)} style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(20, 8, 14, 0.55)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, animation: 'cpFade .2s ease' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 620, maxHeight: '85vh', overflow: 'hidden', background: 'var(--surface)', color: 'var(--fg)', borderRadius: 22, border: '2px solid var(--accent)', boxShadow: '0 24px 60px rgba(255, 92, 137, 0.28), 0 30px 80px rgba(0,0,0,0.35)', display: 'flex', flexDirection: 'column', animation: 'cpPop .28s cubic-bezier(.2,.9,.3,1.2)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '18px 22px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ width: 40, height: 40, borderRadius: 12, background: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)' }}><IconRefresh size={21} sw={2.2} /></div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="font-grotesk" style={{ fontWeight: 700, fontSize: 16, letterSpacing: '-0.01em' }}>Auditoria do chamado #{auditModal.number}</div>
+                <div style={{ fontSize: 12.5, color: 'var(--fg3)' }}>Edições e exclusões de mensagens · visível só para a consultoria</div>
+              </div>
+              <button onClick={() => setAuditModal(null)} title="Fechar" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--fg2)', cursor: 'pointer' }}><IconX size={17} /></button>
+            </div>
+            <div style={{ padding: '18px 22px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {!auditModal.items && <div style={{ color: 'var(--fg3)', fontSize: 14, textAlign: 'center', padding: '24px 0' }}>Carregando…</div>}
+              {auditModal.items && auditModal.items.length === 0 && <div style={{ color: 'var(--fg3)', fontSize: 14, textAlign: 'center', padding: '24px 0' }}>Nenhuma alteração registrada neste chamado.</div>}
+              {auditModal.items?.map((it) => {
+                const isDel = it.action === 'delete';
+                return (
+                  <div key={it.id} style={{ border: '1px solid var(--border)', borderRadius: 14, padding: '14px 16px', background: 'var(--surface2)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 999, fontSize: 10.5, fontWeight: 700, letterSpacing: '.03em', background: isDel ? 'rgba(224,69,122,0.14)' : 'var(--accent-soft)', color: isDel ? '#e0457a' : 'var(--accent)' }}>{isDel ? 'EXCLUSÃO' : 'EDIÇÃO'}</span>
+                      <span style={{ fontSize: 13, fontWeight: 700 }}>{it.editorName}</span>
+                      <span style={{ fontSize: 11.5, color: 'var(--fg3)' }}>({it.editorRole === 'consultor' ? 'consultor' : 'cliente'})</span>
+                      <div style={{ flex: 1 }} />
+                      <span style={{ fontSize: 11.5, color: 'var(--fg3)' }}>{timeAgo(it.createdAt)}</span>
+                    </div>
+                    {it.messageAuthor && <div style={{ fontSize: 12, color: 'var(--fg3)', marginBottom: 8 }}>Mensagem de {it.messageAuthor}</div>}
+                    {isDel ? (
+                      <>
+                        {it.reason && <div style={{ fontSize: 12.5, color: 'var(--fg2)', marginBottom: 8 }}><b>Motivo:</b> {it.reason}</div>}
+                        <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--fg3)', marginBottom: 4 }}>Conteúdo excluído</div>
+                        <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.5, color: 'var(--fg2)', whiteSpace: 'pre-wrap' }}>{it.previousText}</p>
+                      </>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <div>
+                          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: '#e0457a', marginBottom: 4 }}>Antes</div>
+                          <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.5, color: 'var(--fg2)', whiteSpace: 'pre-wrap', textDecoration: 'line-through', opacity: 0.75 }}>{it.previousText}</p>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: '#2f8a62', marginBottom: 4 }}>Depois</div>
+                          <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.5, color: 'var(--fg)', whiteSpace: 'pre-wrap' }}>{it.newText}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -1300,7 +1370,13 @@ export default function AppClient() {
     const sm = statusMeta(t.status);
     return (
       <div style={{ paddingTop: 28, animation: 'cpFade .35s ease' }}>
-        <button onClick={goTickets} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg2)', fontWeight: 700, fontSize: 13, cursor: 'pointer', marginBottom: 20 }}><IconArrowLeft size={15} sw={2.4} /> Todos os chamados</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+          <button onClick={goTickets} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg2)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}><IconArrowLeft size={15} sw={2.4} /> Todos os chamados</button>
+          <div style={{ flex: 1 }} />
+          {me!.canConsultor && t.auditCount > 0 && (
+            <button onClick={openAudit} title="Ver edições e exclusões de mensagens deste chamado" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg2)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}><IconRefresh size={15} sw={2.2} /> Auditoria <span style={{ ...notifBadge, background: 'var(--fg3)' }}>{t.auditCount}</span></button>
+          )}
+        </div>
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 1px 3px var(--shadow)', padding: '24px 26px', marginBottom: 18 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 13 }}>
             <span style={ticketNumChip} title={`Chamado nº ${t.number}`}>#{t.number}</span>
@@ -1326,15 +1402,15 @@ export default function AppClient() {
           )}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 18 }}>
-          {t.messages.map((m) => { const right = m.role === 'consultor'; const isC = m.role === 'consultor'; return (
+          {t.messages.map((m) => { const right = m.role === 'consultor'; const isC = m.role === 'consultor'; const del = m.deleted; return (
             <div key={m.id} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexDirection: right ? 'row-reverse' : 'row' }}>
               <Avatar name={m.author.name} avatar={m.author.avatar} size={38} role={isC ? 'consultor' : 'cliente'} />
-              <div style={{ flex: 1, maxWidth: '82%', padding: '14px 16px', borderRadius: 16, background: right ? 'var(--accent-soft)' : 'var(--surface)', border: `1px solid ${right ? 'var(--accent-soft)' : 'var(--border)'}` }}>
+              <div style={{ flex: 1, maxWidth: '82%', padding: '14px 16px', borderRadius: 16, background: del ? 'var(--surface2)' : (right ? 'var(--accent-soft)' : 'var(--surface)'), border: del ? '1px dashed var(--border)' : `1px solid ${right ? 'var(--accent-soft)' : 'var(--border)'}` }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                  <span style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: 'nowrap' }}>{m.author.name}</span>
+                  <span style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: 'nowrap', color: del ? 'var(--fg3)' : undefined }}>{m.author.name}</span>
                   {m.author.department && <span style={isC ? { background: 'var(--accent)', color: '#fff', padding: '2px 8px', borderRadius: 999, fontSize: 10, fontWeight: 700 } : { background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--fg3)', padding: '2px 8px', borderRadius: 999, fontSize: 10, fontWeight: 700 }}>{m.author.department}</span>}
-                  <span style={{ fontSize: 11.5, color: 'var(--fg3)' }}>· {timeAgo(m.createdAt)}</span>
-                  {(m.mine || me!.canConsultor) && editingMessage?.id !== m.id && (
+                  <span style={{ fontSize: 11.5, color: 'var(--fg3)' }}>· {timeAgo(m.createdAt)}{m.edited && !del ? ' · editado' : ''}</span>
+                  {!del && (m.mine || me!.canConsultor) && editingMessage?.id !== m.id && (
                     <span style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
                       {m.mine && <button onClick={() => setEditingMessage({ id: m.id, text: m.text })} style={miniBtn}>Editar</button>}
                       <button onClick={() => deleteMessage(m.id)} title="Excluir" style={{ ...miniBtn, color: '#e0457a' }}><IconX size={13} sw={2.4} /></button>
@@ -1348,6 +1424,19 @@ export default function AppClient() {
                       <button onClick={() => setEditingMessage(null)} style={miniBtn}>Cancelar</button>
                       <button onClick={saveMessage} style={{ ...miniBtn, background: 'var(--accent)', color: '#fff', border: 'none' }}>Salvar</button>
                     </div>
+                  </div>
+                ) : del ? (
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 700, color: 'var(--fg3)', fontStyle: 'italic' }}>
+                      <IconX size={14} sw={2.4} /> Mensagem excluída{m.deletedByName ? ` por ${m.deletedByName}` : ''}{m.deletedAt ? ` · ${timeAgo(m.deletedAt)}` : ''}
+                    </div>
+                    {m.deletedReason && <div style={{ fontSize: 12.5, color: 'var(--fg3)', marginTop: 4 }}>Motivo: {m.deletedReason}</div>}
+                    {me!.canConsultor && m.text && (
+                      <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 10, border: '1px dashed var(--border)', background: 'var(--surface)' }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 5 }}>Conteúdo original · visível só para a consultoria</div>
+                        <p style={{ margin: 0, fontSize: 14, lineHeight: 1.55, color: 'var(--fg2)', fontStyle: 'italic', whiteSpace: 'pre-wrap' }}><Linkify text={m.text} /></p>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}><Linkify text={m.text} /></p>

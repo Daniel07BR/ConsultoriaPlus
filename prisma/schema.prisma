@@ -223,10 +223,41 @@ model TicketMessage {
   author    AppUser  @relation(fields: [authorId], references: [id])
   role      String // cliente|consultor
   text      String
+  editedAt  DateTime? @map("edited_at") // marcado quando o autor edita
+  // Exclusão "suave": a mensagem some para o cliente, mas o consultor ainda lê o
+  // conteúdo original + quem excluiu e por quê. Auditoria preservada em revisions.
+  deletedAt     DateTime? @map("deleted_at")
+  deletedById   String?   @map("deleted_by_id")
+  deletedByName String?   @map("deleted_by_name")
+  deletedByRole String?   @map("deleted_by_role")
+  deleteReason  String?   @map("delete_reason")
   createdAt DateTime @default(now()) @map("created_at")
+
+  revisions TicketMessageRevision[]
 
   @@index([ticketId])
   @@map("ticket_messages")
+}
+
+/// Trilha de auditoria de uma mensagem de chamado: cada edição ou exclusão guarda
+/// o texto anterior, o novo (em edição) ou o motivo (em exclusão), e quem fez.
+model TicketMessageRevision {
+  id           String        @id @default(uuid())
+  messageId    String        @map("message_id")
+  message      TicketMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  ticketId     String        @map("ticket_id") // facilita a consulta por chamado
+  action       String // edit | delete
+  previousText String        @map("previous_text")
+  newText      String?       @map("new_text") // texto após edição (null em exclusão)
+  reason       String? // motivo da exclusão
+  editorId     String        @map("editor_id")
+  editorName   String        @map("editor_name")
+  editorRole   String        @map("editor_role") // cliente|consultor
+  createdAt    DateTime      @default(now()) @map("created_at")
+
+  @@index([ticketId])
+  @@index([messageId])
+  @@map("ticket_message_revisions")
 }
 
 /// Notificações geradas por eventos (comentário/pergunta, resposta de chamado, etc.)
