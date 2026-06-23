@@ -1,28 +1,32 @@
 'use client';
-// Estado compartilhado do Consultoria Plus (Fase 1 do refactor).
-// Concentra TODO o estado, efeitos (polling, url-sync, reload-por-filtro),
-// loaders e handlers que antes viviam em AppClient. As telas e a casca
-// (AppShell) consomem isto via useApp(). Comportamento idêntico ao anterior.
+// Estado compartilhado do Consultoria Plus.
+// Fase 1: concentra estado/efeitos/handlers. Fase 3: navegação por ROTAS reais
+// (App Router) — `view` deriva do pathname e a navegação usa router.push; a carga
+// de dados de cada tela acontece por efeito ao mudar de rota.
 import { createContext, useContext, useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { getJSON, postJSON } from '@/lib/client';
 import { catColor, linkKind, linkLabel } from '@/lib/present';
-import { urlForView, parseUrl } from '@/lib/url';
+import { pathForView, viewFromPath } from '@/lib/url';
 import { ticketSig } from '@/lib/ticketSig';
 import type { VideoInput } from './VideoForm';
 import type {
-  View, Acting, Me, StudyCard, StudyDetailT, TicketCard, TicketDetailT,
+  Acting, Me, StudyCard, StudyDetailT, TicketCard, TicketDetailT,
   ViewsPayload, AuditItemT, ReadReceiptT, TicketRefT, NotifT, VideoT,
 } from '@/lib/types';
 
 const PAGE_NOTIF = 20; // tamanho da página de notificações
 
 function useAppState() {
+  const router = useRouter();
+  const pathname = usePathname() || '/';
+  const { view, routeId } = viewFromPath(pathname);
+
   const [me, setMe] = useState<Me | null>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [nav, setNav] = useState<'sidebar' | 'top'>('sidebar');
   const [acting, setActing] = useState<Acting>('consultor');
-  const [view, setView] = useState<View>('feed');
 
   const [studies, setStudies] = useState<StudyCard[]>([]);
   const [activeStudy, setActiveStudy] = useState<StudyDetailT | null>(null);
@@ -132,72 +136,51 @@ function useAppState() {
     setVideos(d.videos);
   }, []);
 
-  // Restaura a tela a partir da URL (deep-link no F5, voltar/avançar do navegador).
-  // Telas de formulário (compose/newticket) caem na lista correspondente.
-  const restore = async (s: { view: View; id?: string }) => {
-    if (s.view === 'ticket' && s.id) {
-      setView('ticket'); setActiveTicket(null);
-      try {
-        const d = await getJSON<{ ticket: TicketDetailT }>(`/api/tickets/${s.id}`);
-        setActiveTicket(d.ticket);
-        try { void postJSON(`/api/tickets/${s.id}/seen`); } catch { /* silencioso */ }
-      } catch { setView('feed'); await loadStudies(); }
-      return;
-    }
-    if (s.view === 'study' && s.id) {
-      setView('study'); setActiveStudy(null);
-      try { const d = await getJSON<{ study: StudyDetailT }>(`/api/studies/${s.id}`); setActiveStudy(d.study); }
-      catch { setView('feed'); await loadStudies(); }
-      return;
-    }
-    switch (s.view) {
-      case 'saved': setView('saved'); await loadStudies({ saved: true }); break;
-      case 'videos': setView('videos'); await loadVideos(videoTab); break;
-      case 'tickets': case 'newticket': setView(s.view); await loadTickets(ticketFilter); break;
-      case 'notifications': setView('notifications'); await loadNotifications(); break;
-      case 'profile': setView('profile'); await loadNotifications(); break;
-      default: setView('feed'); await loadStudies(); break; // feed, compose, ticket/study sem id
-    }
-  };
-  const restoreRef = useRef(restore);
-  restoreRef.current = restore;
-  const restoredRef = useRef(false); // só espelha na URL depois da restauração inicial
+  // Marca as mensagens do chamado como lidas (recibo "visto") — fire-and-forget.
+  const markTicketSeen = (id: string) => { try { void postJSON(`/api/tickets/${id}/seen`); } catch { /* silencioso */ } };
 
-  // init — restaura a tela da URL atual
+  // init — carrega o usuário e a visão padrão.
   useEffect(() => {
     (async () => {
       const m = await refreshMe();
       setActing(m.defaultView);
-      await restore(parseUrl(window.location.search));
-      restoredRef.current = true;
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshMe]);
 
-  // Espelha a tela atual na URL (pushState). O compare evita duplicar histórico
-  // durante restauração (init/voltar), pois aí a URL já bate com o estado.
+  // Carrega o detalhe (estudo/chamado) ao entrar na rota /estudos/:id ou /chamados/:id
+  // — cobre clique, deep-link e F5. Substitui o antigo restore()/openStudy/openTicket.
   useEffect(() => {
-    if (!me || !restoredRef.current) return;
-    if ((view === 'ticket' && !activeTicket?.id) || (view === 'study' && !activeStudy?.id)) return;
-    const id = view === 'ticket' ? activeTicket?.id : view === 'study' ? activeStudy?.id : undefined;
-    const url = urlForView(view, id || undefined);
-    if (window.location.pathname + window.location.search !== url) {
-      window.history.pushState(null, '', url);
+    if (!me) return;
+    if (view === 'study' && routeId) {
+      setActiveStudy(null);
+      getJSON<{ study: StudyDetailT }>(`/api/studies/${routeId}`)
+        .then((d) => setActiveStudy(d.study))
+        .catch(() => router.replace('/feed'));
+    } else if (view === 'ticket' && routeId) {
+      setActiveTicket(null); setTicketDraft(''); setEditingTicket(null); setEditRef(null); setRefQuery(''); setRefResults([]);
+      getJSON<{ ticket: TicketDetailT }>(`/api/tickets/${routeId}`)
+        .then((d) => { setActiveTicket(d.ticket); markTicketSeen(routeId); })
+        .catch(() => router.replace('/feed'));
     }
-  }, [me, view, activeTicket?.id, activeStudy?.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, routeId, me]);
 
-  // Voltar/avançar do navegador
+  // Carrega listas ao entrar na tela (clique, deep-link, F5). Feed/salvos ficam no
+  // efeito de filtro logo abaixo; vídeos/chamados/notificações/perfil aqui.
   useEffect(() => {
-    const onPop = () => { void restoreRef.current(parseUrl(window.location.search)); };
-    window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
-  }, []);
+    if (!me) return;
+    if (view === 'videos') loadVideos(videoTab);
+    else if (view === 'tickets') loadTickets(ticketFilter);
+    else if (view === 'notifications' || view === 'profile') loadNotifications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, me]);
 
-  // recarrega lista quando filtro/busca/período mudam no feed/salvos
+  // recarrega lista quando filtro/busca/período mudam no feed/salvos (e ao entrar neles)
   useEffect(() => {
+    if (!me) return;
     if (view === 'feed') loadStudies({ filter, search, from: dateFrom, to: dateTo });
     if (view === 'saved') loadStudies({ saved: true, from: dateFrom, to: dateTo });
-  }, [filter, search, dateFrom, dateTo, view, loadStudies]);
+  }, [filter, search, dateFrom, dateTo, view, me, loadStudies]);
 
   editingMessageRef.current = editingMessage;
   editingTicketRef.current = editingTicket;
@@ -257,19 +240,18 @@ function useAppState() {
   const colorOf = (c: string) => categories.find((x) => x.name === c)?.color || catColor(c);
   const firstCat = catNames[0] || 'Tributário';
 
-  // ---- navegação ----
-  const go = (v: View) => { setView(v); setCommentDraft(''); setCommentIsQuestion(false); setTicketDraft(''); scrollTop(); };
-  const goFeed = () => { go('feed'); loadStudies({ filter, search }); };
-  const goSaved = () => { go('saved'); loadStudies({ saved: true }); };
-  const goTickets = () => { go('tickets'); loadTickets(ticketFilter); };
-  const goNotifications = async () => { go('notifications'); await loadNotifications(); };
-  const goProfile = async () => { go('profile'); await loadNotifications(); };
-  const goVideos = async () => { go('videos'); await loadVideos(videoTab); };
+  // ---- navegação (rotas reais) ----
+  const resetDrafts = () => { setCommentDraft(''); setCommentIsQuestion(false); setTicketDraft(''); };
+  const go = (v: typeof view) => { resetDrafts(); scrollTop(); router.push(pathForView(v)); };
+  const goFeed = () => go('feed');
+  const goSaved = () => go('saved');
+  const goTickets = () => go('tickets');
+  const goNotifications = () => go('notifications');
+  const goProfile = () => go('profile');
+  const goVideos = () => go('videos');
 
-  const openStudy = async (id: string) => { setView('study'); setActiveStudy(null); scrollTop(); const d = await getJSON<{ study: StudyDetailT }>(`/api/studies/${id}`); setActiveStudy(d.study); };
-  // Marca as mensagens do chamado como lidas (recibo "visto") — fire-and-forget.
-  const markTicketSeen = (id: string) => { try { void postJSON(`/api/tickets/${id}/seen`); } catch { /* silencioso */ } };
-  const openTicket = async (id: string) => { setView('ticket'); setActiveTicket(null); setTicketDraft(''); setEditingTicket(null); setEditRef(null); setRefQuery(''); setRefResults([]); scrollTop(); const d = await getJSON<{ ticket: TicketDetailT }>(`/api/tickets/${id}`); setActiveTicket(d.ticket); markTicketSeen(id); };
+  const openStudy = (id: string) => { scrollTop(); router.push(`/estudos/${id}`); };
+  const openTicket = (id: string) => { scrollTop(); router.push(`/chamados/${id}`); };
 
   // ---- ações ----
   const toggleLike = async (id: string) => {
@@ -325,7 +307,7 @@ function useAppState() {
     setEditingStudyId(null);
     setCompose({ title: '', category: '', body: '', linkInput: '', coverImage: null, links: [] });
     if (wasEditing) openStudy(wasEditing);
-    else { go('feed'); loadStudies({ filter: 'Todos', search: '' }); setFilter('Todos'); setSearch(''); }
+    else { setFilter('Todos'); setSearch(''); loadStudies({ filter: 'Todos', search: '' }); go('feed'); }
   };
 
   const startEditStudy = (s: StudyDetailT) => {
@@ -344,7 +326,7 @@ function useAppState() {
     if (!confirm('Excluir este estudo? Esta ação não pode ser desfeita.')) return;
     await fetch(`/api/studies/${id}`, { method: 'DELETE' });
     flashMsg('Estudo excluído');
-    go('feed'); loadStudies({ filter, search });
+    loadStudies({ filter, search }); go('feed');
   };
 
   const saveComment = async () => {
@@ -571,8 +553,10 @@ function useAppState() {
   const savedCount = me.counts.saved;
 
   return {
+    // navegação derivada de rota
+    view,
     // estado base + setters
-    me, theme, setTheme, nav, setNav, acting, setActing, view, setView,
+    me, theme, setTheme, nav, setNav, acting, setActing,
     studies, setStudies, activeStudy, setActiveStudy, tickets, setTickets, activeTicket, setActiveTicket,
     notifications, setNotifications, notifTotal, setNotifTotal,
     viewsModal, setViewsModal, auditModal, setAuditModal, readsModal, setReadsModal,

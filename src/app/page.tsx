@@ -1,11 +1,11 @@
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
-import AppClient from '@/components/AppClient';
 
 export const dynamic = 'force-dynamic';
 
+// Landing pós-SSO/login: manda para a tela inicial (feed) em rota real.
 export default async function Home() {
   const me = await getCurrentUser();
   if (!me) redirect('/login');
-  return <AppClient />;
+  redirect('/feed');
 }
