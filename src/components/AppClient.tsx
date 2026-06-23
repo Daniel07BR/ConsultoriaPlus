@@ -9,7 +9,7 @@ import {
   IconHome, IconTicket, IconBookmark, IconBell, IconPlus, IconHeart, IconComment, IconFile, IconLink,
   IconSearch, IconArrowRight, IconArrowLeft, IconCheck, IconSun, IconMoon, IconLayout, IconSend,
   IconLogout, IconQuestion, IconX, IconPlay, IconImage, IconExternal, IconVideo, IconRefresh,
-  IconThumbsUp,
+  IconThumbsUp, IconEdit,
 } from './icons';
 
 // ícone do anexo conforme o tipo de link
@@ -130,7 +130,7 @@ interface TicketDetailT {
   id: string; number: number; subject: string; category: string; status: string; createdAt: string;
   rating: number | null; ratingLabel: string | null; closedAt: string | null;
   reference: { id: string; number: number; subject: string } | null;
-  canReply: boolean; canClose: boolean; auditCount: number;
+  canReply: boolean; canClose: boolean; canEdit: boolean; auditCount: number;
   author: { name: string; avatar: string | null; department: string | null }; messages: MessageT[];
 }
 interface NotifT { id: string; kind: string; title: string; body: string; targetType: string | null; targetId: string | null; read: boolean; createdAt: string }
@@ -152,6 +152,8 @@ export default function AppClient() {
   const [notifications, setNotifications] = useState<NotifT[]>([]);
   const [viewsModal, setViewsModal] = useState<{ studyId: string; title: string; data: ViewsPayload | null } | null>(null);
   const [auditModal, setAuditModal] = useState<{ number: number; items: AuditItemT[] | null } | null>(null);
+  const [editingTicket, setEditingTicket] = useState<{ subject: string } | null>(null);
+  const [editRef, setEditRef] = useState<{ id: string; number: number; subject: string } | null>(null);
 
   const [filter, setFilter] = useState('Todos');
   const [search, setSearch] = useState('');
@@ -316,7 +318,7 @@ export default function AppClient() {
   const goVideos = async () => { go('videos'); await loadVideos(videoTab); };
 
   const openStudy = async (id: string) => { setView('study'); setActiveStudy(null); scrollTop(); const d = await getJSON<{ study: StudyDetailT }>(`/api/studies/${id}`); setActiveStudy(d.study); };
-  const openTicket = async (id: string) => { setView('ticket'); setActiveTicket(null); setTicketDraft(''); scrollTop(); const d = await getJSON<{ ticket: TicketDetailT }>(`/api/tickets/${id}`); setActiveTicket(d.ticket); };
+  const openTicket = async (id: string) => { setView('ticket'); setActiveTicket(null); setTicketDraft(''); setEditingTicket(null); setEditRef(null); setRefQuery(''); setRefResults([]); scrollTop(); const d = await getJSON<{ ticket: TicketDetailT }>(`/api/tickets/${id}`); setActiveTicket(d.ticket); };
 
   // ---- ações ----
   const toggleLike = async (id: string) => {
@@ -490,12 +492,13 @@ export default function AppClient() {
     setRefSelected(null); setRefQuery(''); setRefResults([]);
     go('newticket');
   };
-  const searchRefTickets = async (q: string) => {
+  const searchRefTickets = async (q: string, excludeId?: string) => {
     setRefQuery(q);
     if (!q.trim()) { setRefResults([]); return; }
     setRefSearching(true);
     try {
-      const d = await getJSON<{ tickets: TicketRefT[] }>(`/api/tickets/search?q=${encodeURIComponent(q)}`);
+      const ex = excludeId ? `&exclude=${excludeId}` : '';
+      const d = await getJSON<{ tickets: TicketRefT[] }>(`/api/tickets/search?q=${encodeURIComponent(q)}${ex}`);
       setRefResults(d.tickets);
     } catch { setRefResults([]); } finally { setRefSearching(false); }
   };
@@ -503,6 +506,26 @@ export default function AppClient() {
     setRefSelected(t);
     setNewTicket((n) => ({ ...n, referenceId: t?.id || '' }));
     setRefResults([]); setRefQuery('');
+  };
+  // ---- edição do chamado (título + citação) ----
+  const startEditTicket = () => {
+    if (!activeTicket) return;
+    setEditingTicket({ subject: activeTicket.subject });
+    setEditRef(activeTicket.reference ? { ...activeTicket.reference } : null);
+    setRefQuery(''); setRefResults([]);
+  };
+  const cancelEditTicket = () => { setEditingTicket(null); setEditRef(null); setRefQuery(''); setRefResults([]); };
+  const pickEditRef = (t: TicketRefT) => { setEditRef({ id: t.id, number: t.number, subject: t.subject }); setRefResults([]); setRefQuery(''); };
+  const saveTicketEdit = async () => {
+    if (!activeTicket || !editingTicket) return;
+    const subject = editingTicket.subject.trim();
+    if (!subject) { flashMsg('Informe o título do chamado'); return; }
+    await fetch(`/api/tickets/${activeTicket.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subject, referenceId: editRef?.id ?? null }) });
+    cancelEditTicket();
+    flashMsg('Chamado atualizado');
+    const d = await getJSON<{ ticket: TicketDetailT }>(`/api/tickets/${activeTicket.id}`);
+    setActiveTicket(d.ticket);
+    if (view === 'tickets') loadTickets(ticketFilter);
   };
   const submitTicket = async () => {
     if (!newTicket.subject.trim()) { flashMsg('Informe o assunto do chamado'); return; }
@@ -1384,21 +1407,71 @@ export default function AppClient() {
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: 'var(--fg3)' }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: colorOf(t.category) }} />{t.category}</span>
             <div style={{ flex: 1 }} />
             <span style={{ fontSize: 12.5, color: 'var(--fg3)' }}>Aberto {timeAgo(t.createdAt)}</span>
+            {t.canEdit && !editingTicket && (
+              <button onClick={startEditTicket} title="Editar título e citação" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--fg2)', fontWeight: 700, fontSize: 12.5, cursor: 'pointer' }}><IconEdit size={14} sw={2.2} /> Editar</button>
+            )}
           </div>
-          <h1 className="font-grotesk" style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.25, margin: 0 }}>{t.subject}</h1>
-          {t.reference && (
-            <button
-              onClick={() => openTicket(t.reference!.id)}
-              title="Abrir o chamado citado para ver o contexto"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 9, marginTop: 14, padding: '10px 14px', borderRadius: 12, border: '1px solid var(--accent)', background: 'var(--accent-soft)', color: 'var(--accent)', cursor: 'pointer', textAlign: 'left', maxWidth: '100%' }}
-            >
-              <IconLink size={16} stroke="var(--accent)" />
-              <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.3, minWidth: 0 }}>
-                <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--fg3)' }}>Refere-se ao chamado</span>
-                <span style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>#{t.reference.number} · {t.reference.subject}</span>
-              </span>
-              <IconArrowRight size={15} sw={2.4} style={{ marginLeft: 'auto', flexShrink: 0 }} />
-            </button>
+          {editingTicket ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <div>
+                <label style={labelStyle}>Título do chamado</label>
+                <input value={editingTicket.subject} onChange={(e) => setEditingTicket({ subject: e.target.value })} style={inputStyle(true)} />
+              </div>
+              <div>
+                <label style={labelStyle}>Chamado citado <span style={{ fontWeight: 500, color: 'var(--fg3)' }}>(vincule ou desvincule um chamado de referência)</span></label>
+                {editRef ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 12, border: '1px solid var(--accent)', background: 'var(--accent-soft)' }}>
+                    <IconTicket size={18} stroke="var(--accent)" />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--fg)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>#{editRef.number} · {editRef.subject}</div>
+                    </div>
+                    <button onClick={() => setEditRef(null)} title="Desvincular" style={{ ...miniBtn, color: '#e0457a' }}>Desvincular</button>
+                  </div>
+                ) : (
+                  <div style={{ position: 'relative' }}>
+                    <span style={{ position: 'absolute', left: 14, top: 22, transform: 'translateY(-50%)', pointerEvents: 'none' }}><IconSearch size={17} stroke="var(--fg3)" /></span>
+                    <input value={refQuery} onChange={(e) => searchRefTickets(e.target.value, t.id)} placeholder="Pesquise pelo número (#12) ou palavra-chave…" style={{ ...inputStyle(), padding: '12px 14px 12px 40px' }} />
+                    {(refSearching || refResults.length > 0 || !!refQuery.trim()) && (
+                      <div style={{ marginTop: 8, border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', overflow: 'hidden', boxShadow: '0 8px 24px var(--shadow)' }}>
+                        {refSearching && <div style={{ padding: '12px 14px', fontSize: 13, color: 'var(--fg3)' }}>Buscando…</div>}
+                        {!refSearching && refResults.map((rt) => (
+                          <button key={rt.id} onClick={() => pickEditRef(rt)} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '11px 14px', border: 'none', borderBottom: '1px solid var(--border)', background: 'transparent', color: 'var(--fg)', cursor: 'pointer' }}>
+                            <span style={ticketNumChip}>#{rt.number}</span>
+                            <span style={{ flex: 1, minWidth: 0 }}>
+                              <span style={{ display: 'block', fontWeight: 700, fontSize: 13.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{rt.subject}</span>
+                              <span style={{ display: 'block', fontSize: 12, color: 'var(--fg3)' }}>{rt.author.name} · {timeAgo(rt.createdAt)}</span>
+                            </span>
+                          </button>
+                        ))}
+                        {!refSearching && refQuery.trim() && refResults.length === 0 && <div style={{ padding: '12px 14px', fontSize: 13, color: 'var(--fg3)' }}>Nenhum chamado encontrado.</div>}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                <button onClick={cancelEditTicket} style={{ padding: '10px 18px', borderRadius: 11, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg2)', fontWeight: 700, fontSize: 13.5, cursor: 'pointer' }}>Cancelar</button>
+                <button onClick={saveTicketEdit} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 20px', borderRadius: 11, border: 'none', background: 'var(--accent)', color: '#fff', fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: 13.5, cursor: 'pointer' }}><IconCheck size={15} sw={2.4} /> Salvar</button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <h1 className="font-grotesk" style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.25, margin: 0 }}>{t.subject}</h1>
+              {t.reference && (
+                <button
+                  onClick={() => openTicket(t.reference!.id)}
+                  title="Abrir o chamado citado para ver o contexto"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 9, marginTop: 14, padding: '10px 14px', borderRadius: 12, border: '1px solid var(--accent)', background: 'var(--accent-soft)', color: 'var(--accent)', cursor: 'pointer', textAlign: 'left', maxWidth: '100%' }}
+                >
+                  <IconLink size={16} stroke="var(--accent)" />
+                  <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.3, minWidth: 0 }}>
+                    <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--fg3)' }}>Refere-se ao chamado</span>
+                    <span style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>#{t.reference.number} · {t.reference.subject}</span>
+                  </span>
+                  <IconArrowRight size={15} sw={2.4} style={{ marginLeft: 'auto', flexShrink: 0 }} />
+                </button>
+              )}
+            </>
           )}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 18 }}>
