@@ -26,12 +26,22 @@ export async function POST(req: NextRequest) {
   const category = names.includes(b?.category) ? b.category : names[0] || 'Tributário';
   const body = (b?.body || '').trim() || subject;
 
+  // Citação opcional de chamado anterior — valida existência e escopo (não cita o que não pode ver).
+  let referenceId: string | null = null;
+  const refReq = (b?.referenceId || '').trim();
+  if (refReq) {
+    const scope = me.canConsultor ? {} : { requesterId: me.user.id };
+    const ref = await prisma.ticket.findFirst({ where: { id: refReq, ...scope }, select: { id: true } });
+    referenceId = ref?.id ?? null;
+  }
+
   const ticket = await prisma.ticket.create({
     data: {
       requesterId: me.user.id,
       subject,
       category,
       status: 'aberto',
+      referenceId,
       messages: { create: [{ authorId: me.user.id, role: 'cliente', text: body }] },
     },
   });
