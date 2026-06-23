@@ -11,12 +11,19 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   if (me instanceof NextResponse) return me;
   const { id } = await params;
 
-  // Só pode marcar quem tem acesso ao chamado (dono ou consultor).
+  // Só pode marcar quem tem acesso ao chamado (dono ou consultor/diretoria/admin).
   const t = await prisma.ticket.findUnique({ where: { id }, select: { requesterId: true } });
   if (!t) return NextResponse.json({ error: 'não encontrado' }, { status: 404 });
   if (t.requesterId !== me.user.id && !me.canConsultor) {
     return NextResponse.json({ error: 'sem acesso' }, { status: 403 });
   }
+
+  // O recibo de leitura só vale para o CLIENTE dono do chamado (confirma que viu a
+  // resposta) e para CONSULTORES de verdade (depto Consultoria). Diretoria/admin
+  // têm acesso total mas NÃO são consultores → não "consomem" o visto.
+  const isRealConsultor = me.role === 'consultor';
+  const canRecordRead = t.requesterId === me.user.id || isRealConsultor;
+  if (!canRecordRead) return NextResponse.json({ ok: true, recorded: false });
 
   const msgs = await prisma.ticketMessage.findMany({
     where: { ticketId: id, deletedAt: null, authorId: { not: me.user.id } },
