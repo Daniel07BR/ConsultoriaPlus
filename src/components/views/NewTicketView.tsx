@@ -20,6 +20,7 @@ export function NewTicketView() {
         {/* Citar um chamado anterior — pesquise por número ou palavra-chave */}
         <div>
           <label style={labelStyle}>Citar chamado anterior <span style={{ fontWeight: 500, color: 'var(--fg3)' }}>(opcional — dá contexto ao consultor)</span></label>
+          <div style={{ fontSize: 12.5, color: 'var(--fg3)', marginBottom: 10, lineHeight: 1.5 }}>Se for sobre o <b>mesmo assunto</b> de um chamado anterior, procure manter o <b>mesmo padrão no título</b> — isso facilita a apresentação e as buscas futuras.</div>
           {refSelected ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 12, border: '1px solid var(--accent)', background: 'var(--accent-soft)' }}>
               <IconTicket size={18} stroke="var(--accent)" />
