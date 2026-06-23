@@ -141,6 +141,29 @@ interface VideoT { id: string; title: string; description: string | null; url: s
 const chipBase: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 15px', borderRadius: 999, fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all .15s ease' };
 const PAGE_NOTIF = 20; // tamanho da página de notificações
 
+// ---- sincronização da tela com a URL (deep-link, F5, voltar/avançar) ----
+const VIEW_SLUG: Record<View, string> = {
+  feed: 'feed', saved: 'salvos', study: 'estudo', compose: 'publicar',
+  tickets: 'chamados', ticket: 'chamado', newticket: 'novo-chamado',
+  notifications: 'notificacoes', profile: 'perfil', videos: 'videos',
+};
+const SLUG_VIEW: Record<string, View> = Object.fromEntries(
+  Object.entries(VIEW_SLUG).map(([v, slug]) => [slug, v as View]),
+);
+function urlForView(view: View, id?: string): string {
+  const slug = VIEW_SLUG[view] || 'feed';
+  const p = new URLSearchParams();
+  if (slug !== 'feed') p.set('v', slug);
+  if (id && (view === 'ticket' || view === 'study')) p.set('id', id);
+  const qs = p.toString();
+  return qs ? `/?${qs}` : '/';
+}
+function parseUrl(search: string): { view: View; id?: string } {
+  const p = new URLSearchParams(search);
+  const view = SLUG_VIEW[p.get('v') || 'feed'] || 'feed';
+  return { view, id: p.get('id') || undefined };
+}
+
 // Assinatura do chamado p/ o polling: muda se título, citação, status ou qualquer
 // mensagem (texto/edição/exclusão) mudar — não só a quantidade de mensagens.
 function ticketSig(t: TicketDetailT): string {
@@ -265,14 +288,66 @@ export default function AppClient() {
     setVideos(d.videos);
   }, []);
 
-  // init
+  // Restaura a tela a partir da URL (deep-link no F5, voltar/avançar do navegador).
+  // Telas de formulário (compose/newticket) caem na lista correspondente.
+  const restore = async (s: { view: View; id?: string }) => {
+    if (s.view === 'ticket' && s.id) {
+      setView('ticket'); setActiveTicket(null);
+      try {
+        const d = await getJSON<{ ticket: TicketDetailT }>(`/api/tickets/${s.id}`);
+        setActiveTicket(d.ticket);
+        try { void postJSON(`/api/tickets/${s.id}/seen`); } catch { /* silencioso */ }
+      } catch { setView('feed'); await loadStudies(); }
+      return;
+    }
+    if (s.view === 'study' && s.id) {
+      setView('study'); setActiveStudy(null);
+      try { const d = await getJSON<{ study: StudyDetailT }>(`/api/studies/${s.id}`); setActiveStudy(d.study); }
+      catch { setView('feed'); await loadStudies(); }
+      return;
+    }
+    switch (s.view) {
+      case 'saved': setView('saved'); await loadStudies({ saved: true }); break;
+      case 'videos': setView('videos'); await loadVideos(videoTab); break;
+      case 'tickets': case 'newticket': setView(s.view); await loadTickets(ticketFilter); break;
+      case 'notifications': setView('notifications'); await loadNotifications(); break;
+      case 'profile': setView('profile'); await loadNotifications(); break;
+      default: setView('feed'); await loadStudies(); break; // feed, compose, ticket/study sem id
+    }
+  };
+  const restoreRef = useRef(restore);
+  restoreRef.current = restore;
+  const restoredRef = useRef(false); // só espelha na URL depois da restauração inicial
+
+  // init — restaura a tela da URL atual
   useEffect(() => {
     (async () => {
       const m = await refreshMe();
       setActing(m.defaultView);
-      await loadStudies();
+      await restore(parseUrl(window.location.search));
+      restoredRef.current = true;
     })();
-  }, [refreshMe, loadStudies]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshMe]);
+
+  // Espelha a tela atual na URL (pushState). O compare evita duplicar histórico
+  // durante restauração (init/voltar), pois aí a URL já bate com o estado.
+  useEffect(() => {
+    if (!me || !restoredRef.current) return;
+    if ((view === 'ticket' && !activeTicket?.id) || (view === 'study' && !activeStudy?.id)) return;
+    const id = view === 'ticket' ? activeTicket?.id : view === 'study' ? activeStudy?.id : undefined;
+    const url = urlForView(view, id || undefined);
+    if (window.location.pathname + window.location.search !== url) {
+      window.history.pushState(null, '', url);
+    }
+  }, [me, view, activeTicket?.id, activeStudy?.id]);
+
+  // Voltar/avançar do navegador
+  useEffect(() => {
+    const onPop = () => { void restoreRef.current(parseUrl(window.location.search)); };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
 
   // recarrega lista quando filtro/busca/período mudam no feed/salvos
   useEffect(() => {
