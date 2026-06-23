@@ -113,12 +113,13 @@ function ticketScope(me: CurrentUser): Record<string, unknown> {
 }
 
 function ticketSummary(t: {
-  id: string; subject: string; category: string; status: string; rating: number | null; ratingLabel: string | null;
+  id: string; number: number; subject: string; category: string; status: string; rating: number | null; ratingLabel: string | null;
   createdAt: Date; requester: { name: string; avatar: string | null; department?: string | null }; messages: { text: string }[];
 }) {
   const last = t.messages[t.messages.length - 1];
   return {
     id: t.id,
+    number: t.number,
     subject: t.subject,
     category: t.category,
     status: t.status,
@@ -133,7 +134,9 @@ function ticketSummary(t: {
 
 export async function listTickets(me: CurrentUser, status?: string) {
   const where: Record<string, unknown> = { ...ticketScope(me) };
+  // Fila de atendimento / meus chamados: finalizados (fechado) ficam só no histórico.
   if (status && status !== 'todos') where.status = status;
+  else where.status = { not: 'fechado' };
   const tickets = await prisma.ticket.findMany({
     where,
     orderBy: { updatedAt: 'desc' },
@@ -148,7 +151,13 @@ export async function listTicketsHistory(
   opts: { q?: string; requester?: string; from?: string; to?: string } = {},
 ) {
   const where: Record<string, unknown> = {};
-  if (opts.q) where.subject = { contains: opts.q, mode: 'insensitive' };
+  if (opts.q) {
+    // Busca por palavra-chave no título OU pelo número do chamado (#123 ou 123).
+    const num = parseInt(opts.q.replace(/^#/, ''), 10);
+    const or: Record<string, unknown>[] = [{ subject: { contains: opts.q, mode: 'insensitive' } }];
+    if (Number.isInteger(num)) or.push({ number: num });
+    where.OR = or;
+  }
   if (opts.requester) where.requester = { name: { contains: opts.requester, mode: 'insensitive' } };
   const created: Record<string, Date> = {};
   if (opts.from) created.gte = new Date(opts.from + 'T00:00:00');
@@ -168,6 +177,7 @@ export async function getTicket(me: CurrentUser, id: string) {
     where: { id },
     include: {
       requester: { select: { id: true, name: true, avatar: true, department: true } },
+      reference: { select: { id: true, number: true, subject: true } },
       messages: {
         orderBy: { createdAt: 'asc' },
         include: { author: { select: { name: true, avatar: true, department: true } } },
@@ -180,6 +190,8 @@ export async function getTicket(me: CurrentUser, id: string) {
 
   return {
     id: t.id,
+    number: t.number,
+    reference: t.reference ? { id: t.reference.id, number: t.reference.number, subject: t.reference.subject } : null,
     subject: t.subject,
     category: t.category,
     status: t.status,
@@ -200,6 +212,34 @@ export async function getTicket(me: CurrentUser, id: string) {
       createdAt: m.createdAt.toISOString(),
     })),
   };
+}
+
+/** Busca enxuta p/ citar um chamado anterior: por número (#123 ou 123) ou palavra-chave no título.
+ *  Escopo: cliente vê os próprios; consultor/both vê todos. Exclui o próprio chamado (excludeId). */
+export async function searchTickets(me: CurrentUser, q: string, excludeId?: string) {
+  const term = (q || '').trim();
+  if (!term) return [];
+  const num = parseInt(term.replace(/^#/, ''), 10);
+  const or: Record<string, unknown>[] = [{ subject: { contains: term, mode: 'insensitive' } }];
+  if (Number.isInteger(num)) or.push({ number: num });
+
+  const where: Record<string, unknown> = { ...ticketScope(me), OR: or };
+  if (excludeId) where.id = { not: excludeId };
+
+  const tickets = await prisma.ticket.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    take: 8,
+    include: { requester: { select: { name: true, avatar: true } } },
+  });
+  return tickets.map((t) => ({
+    id: t.id,
+    number: t.number,
+    subject: t.subject,
+    status: t.status,
+    createdAt: t.createdAt.toISOString(),
+    author: { name: t.requester.name, avatar: t.requester.avatar },
+  }));
 }
 
 // ---------- Contadores / notificações ----------

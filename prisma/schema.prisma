@@ -192,6 +192,7 @@ model StudySave {
 
 model Ticket {
   id          String    @id @default(uuid())
+  number      Int       @unique @default(autoincrement()) // número sequencial humano (#) p/ relatórios e citação
   requesterId String    @map("requester_id")
   requester   AppUser   @relation("requester", fields: [requesterId], references: [id])
   subject     String
@@ -200,6 +201,10 @@ model Ticket {
   rating      Int? // 1..5 (avaliação do cliente ao fechar)
   ratingLabel String?   @map("rating_label")
   closedAt    DateTime? @map("closed_at")
+  // Citação de um chamado anterior (auto-relação): dá contexto ao consultor.
+  referenceId String?   @map("reference_id")
+  reference   Ticket?   @relation("ticketRef", fields: [referenceId], references: [id], onDelete: SetNull)
+  referencedBy Ticket[] @relation("ticketRef")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 

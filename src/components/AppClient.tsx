@@ -117,13 +117,15 @@ interface ViewsPayload {
 interface CommentT { id: string; author: { name: string; avatar: string | null; department: string | null }; role: string; text: string; isQuestion: boolean; mine: boolean; createdAt: string }
 interface StudyDetailT extends Omit<StudyCard, 'excerpt'> { body: string[]; comments: CommentT[] }
 interface TicketCard {
-  id: string; subject: string; category: string; status: string; rating: number | null; ratingLabel: string | null; createdAt: string;
+  id: string; number: number; subject: string; category: string; status: string; rating: number | null; ratingLabel: string | null; createdAt: string;
   author: { name: string; avatar: string | null; department: string | null }; msgCount: number; lastPreview: string;
 }
 interface MessageT { id: string; author: { name: string; avatar: string | null; department: string | null }; role: string; text: string; mine: boolean; createdAt: string }
+interface TicketRefT { id: string; number: number; subject: string; status: string; createdAt: string; author: { name: string; avatar: string | null } }
 interface TicketDetailT {
-  id: string; subject: string; category: string; status: string; createdAt: string;
+  id: string; number: number; subject: string; category: string; status: string; createdAt: string;
   rating: number | null; ratingLabel: string | null; closedAt: string | null;
+  reference: { id: string; number: number; subject: string } | null;
   canReply: boolean; canClose: boolean;
   author: { name: string; avatar: string | null; department: string | null }; messages: MessageT[];
 }
@@ -169,7 +171,11 @@ export default function AppClient() {
   const [editingStudyId, setEditingStudyId] = useState<string | null>(null);
   const [editingComment, setEditingComment] = useState<{ id: string; text: string } | null>(null);
   const [editingMessage, setEditingMessage] = useState<{ id: string; text: string } | null>(null);
-  const [newTicket, setNewTicket] = useState({ subject: '', category: '', body: '' });
+  const [newTicket, setNewTicket] = useState({ subject: '', category: '', body: '', referenceId: '' });
+  const [refQuery, setRefQuery] = useState('');
+  const [refResults, setRefResults] = useState<TicketRefT[]>([]);
+  const [refSelected, setRefSelected] = useState<TicketRefT | null>(null);
+  const [refSearching, setRefSearching] = useState(false);
   const [commentDraft, setCommentDraft] = useState('');
   const [commentIsQuestion, setCommentIsQuestion] = useState(false);
   const [ticketDraft, setTicketDraft] = useState('');
@@ -462,10 +468,30 @@ export default function AppClient() {
     setCompose({ title: '', category: '', body: '', linkInput: '', coverImage: null, links: [] });
     if (editing) openStudy(editing); else go('feed');
   };
+  const startNewTicket = () => {
+    setNewTicket({ subject: '', category: '', body: '', referenceId: '' });
+    setRefSelected(null); setRefQuery(''); setRefResults([]);
+    go('newticket');
+  };
+  const searchRefTickets = async (q: string) => {
+    setRefQuery(q);
+    if (!q.trim()) { setRefResults([]); return; }
+    setRefSearching(true);
+    try {
+      const d = await getJSON<{ tickets: TicketRefT[] }>(`/api/tickets/search?q=${encodeURIComponent(q)}`);
+      setRefResults(d.tickets);
+    } catch { setRefResults([]); } finally { setRefSearching(false); }
+  };
+  const selectRefTicket = (t: TicketRefT | null) => {
+    setRefSelected(t);
+    setNewTicket((n) => ({ ...n, referenceId: t?.id || '' }));
+    setRefResults([]); setRefQuery('');
+  };
   const submitTicket = async () => {
     if (!newTicket.subject.trim()) { flashMsg('Informe o assunto do chamado'); return; }
     const r = await postJSON<{ id: string }>('/api/tickets', { ...newTicket, category: newTicket.category || firstCat });
-    setNewTicket({ subject: '', category: '', body: '' });
+    setNewTicket({ subject: '', category: '', body: '', referenceId: '' });
+    setRefSelected(null); setRefQuery(''); setRefResults([]);
     flashMsg('Chamado aberto');
     refreshMe();
     openTicket(r.id);
@@ -546,7 +572,7 @@ export default function AppClient() {
       setEditingStudyId(null);
       setCompose({ title: '', category: '', body: '', linkInput: '', coverImage: null, links: [] });
       go('compose');
-    } else go('newticket');
+    } else startNewTicket();
   };
 
   // ---- estilos derivados ----
@@ -757,6 +783,34 @@ export default function AppClient() {
   );
 
   // ===================== VIEWS =====================
+
+  // Detecta URLs no texto de uma conversa e as torna clicáveis. YouTube/Drive
+  // abrem no visualizador embutido; demais abrem em nova aba.
+  function Linkify({ text }: { text: string }) {
+    const parts = text.split(/(https?:\/\/[^\s<]+)/g);
+    return (
+      <>
+        {parts.map((p, i) => {
+          if (/^https?:\/\//.test(p)) {
+            const trail = (p.match(/[).,;:!?'"»]+$/) || [''])[0];
+            const url = trail ? p.slice(0, p.length - trail.length) : p;
+            return (
+              <span key={i}>
+                <a
+                  href={url}
+                  onClick={(e) => { e.preventDefault(); openLink(url); }}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'underline', wordBreak: 'break-all' }}
+                >{url}</a>{trail}
+              </span>
+            );
+          }
+          return <span key={i}>{p}</span>;
+        })}
+      </>
+    );
+  }
 
   function FeedView() {
     const isSaved = view === 'saved';
@@ -1055,7 +1109,7 @@ export default function AppClient() {
                       </div>
                     </div>
                   ) : (
-                    <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: 'var(--fg)', whiteSpace: 'pre-wrap' }}>{c.text}</p>
+                    <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, color: 'var(--fg)', whiteSpace: 'pre-wrap' }}><Linkify text={c.text} /></p>
                   )}
                 </div>
               );
@@ -1167,7 +1221,10 @@ export default function AppClient() {
             </div>
             <div style={{ fontSize: 12.5, color: 'var(--fg3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Cliente · {timeAgo(t.createdAt)} · {t.msgCount} {t.msgCount === 1 ? 'mensagem' : 'mensagens'}</div>
           </div>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '6px 12px', borderRadius: 999, background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 12, fontWeight: 700, color: 'var(--fg2)' }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: colorOf(t.category) }} />{t.category}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={ticketNumChip} title={`Chamado nº ${t.number}`}>#{t.number}</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '6px 12px', borderRadius: 999, background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 12, fontWeight: 700, color: 'var(--fg2)' }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: colorOf(t.category) }} />{t.category}</span>
+          </div>
         </div>
         <div className="font-grotesk" style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.015em', lineHeight: 1.25, margin: '0 0 8px' }}>{t.subject}</div>
         <p style={{ margin: '0 0 16px', color: 'var(--fg2)', fontSize: 14.5, lineHeight: 1.6 }}>{t.lastPreview}</p>
@@ -1181,8 +1238,9 @@ export default function AppClient() {
   }
 
   function TicketsView() {
-    const tf = ['todos', 'aberto', 'andamento', 'respondido', 'fechado'];
-    const tfLabel: Record<string, string> = { todos: 'Todos', aberto: 'Aberto', andamento: 'Em andamento', respondido: 'Respondido', fechado: 'Fechado' };
+    // Finalizados (fechado) saem da fila e ficam só no Histórico.
+    const tf = ['todos', 'aberto', 'andamento', 'respondido'];
+    const tfLabel: Record<string, string> = { todos: 'Todos', aberto: 'Aberto', andamento: 'Em andamento', respondido: 'Respondido' };
     const tab = (k: 'meus' | 'historico', label: string) => (
       <button onClick={() => { setTicketTab(k); if (k === 'historico') loadHistory(hist); }} style={{ padding: '9px 16px', borderRadius: 11, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 14, fontFamily: "'Space Grotesk',sans-serif", background: ticketTab === k ? 'var(--accent-soft)' : 'transparent', color: ticketTab === k ? 'var(--accent)' : 'var(--fg2)' }}>{label}</button>
     );
@@ -1190,7 +1248,7 @@ export default function AppClient() {
       <div style={{ paddingTop: 32, animation: 'cpFade .35s ease' }}>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, marginBottom: 12 }}>
           <h1 className="font-grotesk" style={{ fontSize: 30, fontWeight: 700, letterSpacing: '-0.02em', margin: 0 }}>Chamados</h1>
-          <button onClick={() => go('newticket')} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 18px', borderRadius: 12, border: 'none', background: 'var(--accent)', color: '#fff', fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: 13.5, cursor: 'pointer', boxShadow: '0 5px 14px var(--accent-soft)', whiteSpace: 'nowrap' }}><IconPlus size={16} sw={2.6} /> Abrir chamado</button>
+          <button onClick={startNewTicket} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 18px', borderRadius: 12, border: 'none', background: 'var(--accent)', color: '#fff', fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: 13.5, cursor: 'pointer', boxShadow: '0 5px 14px var(--accent-soft)', whiteSpace: 'nowrap' }}><IconPlus size={16} sw={2.6} /> Abrir chamado</button>
         </div>
 
         <div style={{ display: 'flex', gap: 4, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 13, padding: 4, marginBottom: 20, width: 'fit-content' }}>
@@ -1245,12 +1303,27 @@ export default function AppClient() {
         <button onClick={goTickets} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg2)', fontWeight: 700, fontSize: 13, cursor: 'pointer', marginBottom: 20 }}><IconArrowLeft size={15} sw={2.4} /> Todos os chamados</button>
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 1px 3px var(--shadow)', padding: '24px 26px', marginBottom: 18 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 13 }}>
+            <span style={ticketNumChip} title={`Chamado nº ${t.number}`}>#{t.number}</span>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 12px', borderRadius: 999, background: sm.tint, color: sm.text, fontSize: 11.5, fontWeight: 700 }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: sm.dot }} />{sm.label}</span>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 600, color: 'var(--fg3)' }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: colorOf(t.category) }} />{t.category}</span>
             <div style={{ flex: 1 }} />
             <span style={{ fontSize: 12.5, color: 'var(--fg3)' }}>Aberto {timeAgo(t.createdAt)}</span>
           </div>
           <h1 className="font-grotesk" style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-0.02em', lineHeight: 1.25, margin: 0 }}>{t.subject}</h1>
+          {t.reference && (
+            <button
+              onClick={() => openTicket(t.reference!.id)}
+              title="Abrir o chamado citado para ver o contexto"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 9, marginTop: 14, padding: '10px 14px', borderRadius: 12, border: '1px solid var(--accent)', background: 'var(--accent-soft)', color: 'var(--accent)', cursor: 'pointer', textAlign: 'left', maxWidth: '100%' }}
+            >
+              <IconLink size={16} stroke="var(--accent)" />
+              <span style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.3, minWidth: 0 }}>
+                <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--fg3)' }}>Refere-se ao chamado</span>
+                <span style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>#{t.reference.number} · {t.reference.subject}</span>
+              </span>
+              <IconArrowRight size={15} sw={2.4} style={{ marginLeft: 'auto', flexShrink: 0 }} />
+            </button>
+          )}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 18 }}>
           {t.messages.map((m) => { const right = m.role === 'consultor'; const isC = m.role === 'consultor'; return (
@@ -1277,7 +1350,7 @@ export default function AppClient() {
                     </div>
                   </div>
                 ) : (
-                  <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{m.text}</p>
+                  <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}><Linkify text={m.text} /></p>
                 )}
               </div>
             </div>
@@ -1358,6 +1431,42 @@ export default function AppClient() {
           <Field label="Assunto"><input value={newTicket.subject} onChange={(e) => setNewTicket({ ...newTicket, subject: e.target.value })} placeholder="Resuma sua dúvida em uma frase" style={inputStyle(true)} /></Field>
           <Field label="Categoria"><select value={newTicket.category || firstCat} onChange={(e) => setNewTicket({ ...newTicket, category: e.target.value })} style={{ ...inputStyle(), cursor: 'pointer' }}>{catNames.map((c) => <option key={c} value={c}>{c}</option>)}</select></Field>
           <Field label="Descrição"><textarea value={newTicket.body} onChange={(e) => setNewTicket({ ...newTicket, body: e.target.value })} rows={6} placeholder="Detalhe o contexto, prazos e o que você precisa saber…" style={{ ...inputStyle(), lineHeight: 1.65 }} /></Field>
+
+          {/* Citar um chamado anterior — pesquise por número ou palavra-chave */}
+          <div>
+            <label style={labelStyle}>Citar chamado anterior <span style={{ fontWeight: 500, color: 'var(--fg3)' }}>(opcional — dá contexto ao consultor)</span></label>
+            {refSelected ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderRadius: 12, border: '1px solid var(--accent)', background: 'var(--accent-soft)' }}>
+                <IconTicket size={18} stroke="var(--accent)" />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--fg)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>#{refSelected.number} · {refSelected.subject}</div>
+                  <div style={{ fontSize: 12, color: 'var(--fg3)' }}>{refSelected.author.name} · {timeAgo(refSelected.createdAt)}</div>
+                </div>
+                <button onClick={() => selectRefTicket(null)} title="Remover citação" style={miniBtn}><IconX size={13} sw={2.4} /></button>
+              </div>
+            ) : (
+              <div style={{ position: 'relative' }}>
+                <span style={{ position: 'absolute', left: 14, top: 22, transform: 'translateY(-50%)', pointerEvents: 'none' }}><IconSearch size={17} stroke="var(--fg3)" /></span>
+                <input value={refQuery} onChange={(e) => searchRefTickets(e.target.value)} placeholder="Pesquise pelo número (#12) ou palavra-chave…" style={{ ...inputStyle(), padding: '12px 14px 12px 40px' }} />
+                {(refSearching || refResults.length > 0 || (!!refQuery.trim())) && (
+                  <div style={{ marginTop: 8, border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', overflow: 'hidden', boxShadow: '0 8px 24px var(--shadow)' }}>
+                    {refSearching && <div style={{ padding: '12px 14px', fontSize: 13, color: 'var(--fg3)' }}>Buscando…</div>}
+                    {!refSearching && refResults.map((t) => (
+                      <button key={t.id} onClick={() => selectRefTicket(t)} style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '11px 14px', border: 'none', borderBottom: '1px solid var(--border)', background: 'transparent', color: 'var(--fg)', cursor: 'pointer' }}>
+                        <span style={ticketNumChip}>#{t.number}</span>
+                        <span style={{ flex: 1, minWidth: 0 }}>
+                          <span style={{ display: 'block', fontWeight: 700, fontSize: 13.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.subject}</span>
+                          <span style={{ display: 'block', fontSize: 12, color: 'var(--fg3)' }}>{t.author.name} · {timeAgo(t.createdAt)}</span>
+                        </span>
+                      </button>
+                    ))}
+                    {!refSearching && refQuery.trim() && refResults.length === 0 && <div style={{ padding: '12px 14px', fontSize: 13, color: 'var(--fg3)' }}>Nenhum chamado encontrado.</div>}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, paddingTop: 6, borderTop: '1px solid var(--border)' }}>
             <button onClick={goTickets} style={{ padding: '12px 20px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg2)', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Cancelar</button>
             <button onClick={submitTicket} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 24px', borderRadius: 12, border: 'none', background: 'var(--accent)', color: '#fff', fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: '0 6px 18px var(--accent-soft)' }}>Enviar chamado</button>
@@ -1457,6 +1566,7 @@ const attachPill: React.CSSProperties = { display: 'inline-flex', alignItems: 'c
 const miniBtn: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', padding: '4px 9px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg2)', fontWeight: 700, fontSize: 11.5, cursor: 'pointer' };
 const dateInput: React.CSSProperties = { padding: '8px 11px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg)', fontSize: 13, outline: 'none', colorScheme: 'light' as React.CSSProperties['colorScheme'] };
 const pillX: React.CSSProperties = { display: 'inline-flex', border: 'none', background: 'transparent', color: 'var(--accent)', cursor: 'pointer', padding: 0, marginLeft: 2 };
+const ticketNumChip: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', padding: '4px 9px', borderRadius: 8, background: 'var(--accent)', color: '#fff', fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: 12, letterSpacing: '.01em', flexShrink: 0 };
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (<div><label style={labelStyle}>{label}</label>{children}</div>);
 }
