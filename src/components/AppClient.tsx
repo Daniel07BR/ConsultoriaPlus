@@ -1571,8 +1571,8 @@ export default function AppClient() {
                 ) : (
                   <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}><Linkify text={m.text} /></p>
                 )}
-                {/* Recibo de leitura ("visto"), só na própria mensagem e quando não excluída */}
-                {m.mine && !del && editingMessage?.id !== m.id && (
+                {/* Recibo de leitura ("enviada"/"visto") — visível em toda mensagem, p/ qualquer usuário */}
+                {!del && editingMessage?.id !== m.id && (
                   <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
                     {m.reads.length > 0 ? (
                       <button onClick={() => setReadsModal({ preview: m.text, items: m.reads })} title="Ver quem visualizou e quando" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 4px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: 'var(--accent)' }}>
