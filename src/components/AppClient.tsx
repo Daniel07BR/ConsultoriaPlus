@@ -138,6 +138,15 @@ interface VideoT { id: string; title: string; description: string | null; url: s
 
 const chipBase: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 15px', borderRadius: 999, fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all .15s ease' };
 
+// Assinatura do chamado p/ o polling: muda se título, citação, status ou qualquer
+// mensagem (texto/edição/exclusão) mudar — não só a quantidade de mensagens.
+function ticketSig(t: TicketDetailT): string {
+  return JSON.stringify({
+    s: t.subject, r: t.reference?.id ?? null, st: t.status,
+    m: t.messages.map((m) => [m.id, m.text, m.edited, m.deleted, m.deletedReason]),
+  });
+}
+
 export default function AppClient() {
   const [me, setMe] = useState<Me | null>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -154,6 +163,9 @@ export default function AppClient() {
   const [auditModal, setAuditModal] = useState<{ number: number; items: AuditItemT[] | null } | null>(null);
   const [editingTicket, setEditingTicket] = useState<{ subject: string } | null>(null);
   const [editRef, setEditRef] = useState<{ id: string; number: number; subject: string } | null>(null);
+  // Refs com o estado de edição mais recente — lidos dentro do polling sem recriar timers.
+  const editingMessageRef = useRef<{ id: string; text: string } | null>(null);
+  const editingTicketRef = useRef<{ subject: string } | null>(null);
 
   const [filter, setFilter] = useState('Todos');
   const [search, setSearch] = useState('');
@@ -256,6 +268,9 @@ export default function AppClient() {
     if (view === 'saved') loadStudies({ saved: true, from: dateFrom, to: dateTo });
   }, [filter, search, dateFrom, dateTo, view, loadStudies]);
 
+  editingMessageRef.current = editingMessage;
+  editingTicketRef.current = editingTicket;
+
   // ---- polling em tempo real ----------------------------------------
   // Atualiza notificações/contadores sempre (10s); feed quando está no feed
   // (20s); estudo aberto e chamado aberto a cada 8s. Pausa enquanto a aba está
@@ -283,12 +298,14 @@ export default function AppClient() {
         setActiveStudy((cur) => (cur && cur.id === id && cur.comments.length !== d.study.comments.length ? d.study : cur));
       }), 8000));
     }
-    // Chamado aberto → mensagens novas
+    // Chamado aberto → mensagens novas, edições e exclusões (sem F5).
     if (view === 'ticket' && activeTicket?.id) {
       const id = activeTicket.id;
       timers.push(setInterval(safe(async () => {
+        // Não sobrescreve enquanto alguém está digitando uma edição (mensagem ou título).
+        if (editingMessageRef.current || editingTicketRef.current) return;
         const d = await getJSON<{ ticket: TicketDetailT }>(`/api/tickets/${id}`);
-        setActiveTicket((cur) => (cur && cur.id === id && cur.messages.length !== d.ticket.messages.length ? d.ticket : cur));
+        setActiveTicket((cur) => (cur && cur.id === id && ticketSig(cur) !== ticketSig(d.ticket) ? d.ticket : cur));
       }), 8000));
     }
     // Lista de notificações se está aberta
@@ -792,7 +809,7 @@ export default function AppClient() {
               <div style={{ width: 40, height: 40, borderRadius: 12, background: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)' }}><IconRefresh size={21} sw={2.2} /></div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="font-grotesk" style={{ fontWeight: 700, fontSize: 16, letterSpacing: '-0.01em' }}>Auditoria do chamado #{auditModal.number}</div>
-                <div style={{ fontSize: 12.5, color: 'var(--fg3)' }}>Edições e exclusões de mensagens · visível só para a consultoria</div>
+                <div style={{ fontSize: 12.5, color: 'var(--fg3)' }}>Edições, exclusões e alterações do chamado · visível só para a consultoria</div>
               </div>
               <button onClick={() => setAuditModal(null)} title="Fechar" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--fg2)', cursor: 'pointer' }}><IconX size={17} /></button>
             </div>
@@ -801,15 +818,18 @@ export default function AppClient() {
               {auditModal.items && auditModal.items.length === 0 && <div style={{ color: 'var(--fg3)', fontSize: 14, textAlign: 'center', padding: '24px 0' }}>Nenhuma alteração registrada neste chamado.</div>}
               {auditModal.items?.map((it) => {
                 const isDel = it.action === 'delete';
+                const badge = isDel ? 'EXCLUSÃO' : it.action === 'title' ? 'TÍTULO' : it.action === 'reference' ? 'CITAÇÃO' : 'EDIÇÃO';
+                const scope = it.action === 'title' ? 'Título do chamado' : it.action === 'reference' ? 'Chamado citado' : null;
                 return (
                   <div key={it.id} style={{ border: '1px solid var(--border)', borderRadius: 14, padding: '14px 16px', background: 'var(--surface2)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 999, fontSize: 10.5, fontWeight: 700, letterSpacing: '.03em', background: isDel ? 'rgba(224,69,122,0.14)' : 'var(--accent-soft)', color: isDel ? '#e0457a' : 'var(--accent)' }}>{isDel ? 'EXCLUSÃO' : 'EDIÇÃO'}</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 999, fontSize: 10.5, fontWeight: 700, letterSpacing: '.03em', background: isDel ? 'rgba(224,69,122,0.14)' : 'var(--accent-soft)', color: isDel ? '#e0457a' : 'var(--accent)' }}>{badge}</span>
                       <span style={{ fontSize: 13, fontWeight: 700 }}>{it.editorName}</span>
                       <span style={{ fontSize: 11.5, color: 'var(--fg3)' }}>({it.editorRole === 'consultor' ? 'consultor' : 'cliente'})</span>
                       <div style={{ flex: 1 }} />
                       <span style={{ fontSize: 11.5, color: 'var(--fg3)' }}>{timeAgo(it.createdAt)}</span>
                     </div>
+                    {scope && <div style={{ fontSize: 12, color: 'var(--fg3)', marginBottom: 8 }}>{scope}</div>}
                     {it.messageAuthor && <div style={{ fontSize: 12, color: 'var(--fg3)', marginBottom: 8 }}>Mensagem de {it.messageAuthor}</div>}
                     {isDel ? (
                       <>
@@ -1475,7 +1495,7 @@ export default function AppClient() {
           )}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 18 }}>
-          {t.messages.map((m) => { const right = m.role === 'consultor'; const isC = m.role === 'consultor'; const del = m.deleted; return (
+          {t.messages.map((m) => { const right = m.role === 'consultor'; const isC = m.role === 'consultor'; const del = m.deleted; const canDel = m.mine || (me!.canConsultor && m.role === 'consultor'); return (
             <div key={m.id} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexDirection: right ? 'row-reverse' : 'row' }}>
               <Avatar name={m.author.name} avatar={m.author.avatar} size={38} role={isC ? 'consultor' : 'cliente'} />
               <div style={{ flex: 1, maxWidth: '82%', padding: '14px 16px', borderRadius: 16, background: del ? 'var(--surface2)' : (right ? 'var(--accent-soft)' : 'var(--surface)'), border: del ? '1px dashed var(--border)' : `1px solid ${right ? 'var(--accent-soft)' : 'var(--border)'}` }}>
@@ -1483,10 +1503,10 @@ export default function AppClient() {
                   <span style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: 'nowrap', color: del ? 'var(--fg3)' : undefined }}>{m.author.name}</span>
                   {m.author.department && <span style={isC ? { background: 'var(--accent)', color: '#fff', padding: '2px 8px', borderRadius: 999, fontSize: 10, fontWeight: 700 } : { background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--fg3)', padding: '2px 8px', borderRadius: 999, fontSize: 10, fontWeight: 700 }}>{m.author.department}</span>}
                   <span style={{ fontSize: 11.5, color: 'var(--fg3)' }}>· {timeAgo(m.createdAt)}{m.edited && !del ? ' · editado' : ''}</span>
-                  {!del && (m.mine || me!.canConsultor) && editingMessage?.id !== m.id && (
+                  {!del && (m.mine || canDel) && editingMessage?.id !== m.id && (
                     <span style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
                       {m.mine && <button onClick={() => setEditingMessage({ id: m.id, text: m.text })} style={miniBtn}>Editar</button>}
-                      <button onClick={() => deleteMessage(m.id)} title="Excluir" style={{ ...miniBtn, color: '#e0457a' }}><IconX size={13} sw={2.4} /></button>
+                      {canDel && <button onClick={() => deleteMessage(m.id)} title="Excluir" style={{ ...miniBtn, color: '#e0457a' }}><IconX size={13} sw={2.4} /></button>}
                     </span>
                   )}
                 </div>
