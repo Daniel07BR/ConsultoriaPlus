@@ -46,11 +46,14 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
 
   const m = await prisma.ticketMessage.findUnique({
     where: { id },
-    select: { id: true, ticketId: true, authorId: true, text: true, deletedAt: true },
+    select: { id: true, ticketId: true, authorId: true, role: true, text: true, deletedAt: true },
   });
   if (!m) return NextResponse.json({ error: 'não encontrado' }, { status: 404 });
-  if (m.authorId !== me.user.id && !me.canConsultor) {
-    return NextResponse.json({ error: 'sem acesso' }, { status: 403 });
+  // Cada um exclui a sua. O consultor pode excluir mensagens da consultoria, mas
+  // NÃO as do cliente (essas só o próprio cliente apaga).
+  const canDelete = m.authorId === me.user.id || (me.canConsultor && m.role === 'consultor');
+  if (!canDelete) {
+    return NextResponse.json({ error: 'consultor não pode excluir mensagem do cliente' }, { status: 403 });
   }
   if (m.deletedAt) return NextResponse.json({ error: 'já excluída' }, { status: 409 });
 

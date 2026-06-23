@@ -239,14 +239,15 @@ model TicketMessage {
   @@map("ticket_messages")
 }
 
-/// Trilha de auditoria de uma mensagem de chamado: cada edição ou exclusão guarda
-/// o texto anterior, o novo (em edição) ou o motivo (em exclusão), e quem fez.
+/// Trilha de auditoria de um chamado: edição/exclusão de mensagem (messageId
+/// preenchido) e alteração do próprio chamado — título/citação (messageId nulo).
+/// Guarda o texto anterior, o novo (em edição) ou o motivo (em exclusão), e quem fez.
 model TicketMessageRevision {
-  id           String        @id @default(uuid())
-  messageId    String        @map("message_id")
-  message      TicketMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  ticketId     String        @map("ticket_id") // facilita a consulta por chamado
-  action       String // edit | delete
+  id           String         @id @default(uuid())
+  messageId    String?        @map("message_id") // nulo p/ alterações do chamado (título/citação)
+  message      TicketMessage? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  ticketId     String         @map("ticket_id") // facilita a consulta por chamado
+  action       String // edit | delete | title | reference
   previousText String        @map("previous_text")
   newText      String?       @map("new_text") // texto após edição (null em exclusão)
   reason       String? // motivo da exclusão
