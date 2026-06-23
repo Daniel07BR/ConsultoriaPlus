@@ -147,10 +147,16 @@ function useAppState() {
     })();
   }, [refreshMe]);
 
+  // Identidade estável do usuário. O objeto `me` é recriado a cada refreshMe (polling
+  // de 10s), mas o id NÃO muda — então usamos `uid` como dep dos efeitos de carga p/
+  // eles não re-dispararem à toa (senão o chamado "volta ao topo" e o painel de edição
+  // fecha sozinho a cada 10s).
+  const uid = me?.user.id ?? null;
+
   // Carrega o detalhe (estudo/chamado) ao entrar na rota /estudos/:id ou /chamados/:id
   // — cobre clique, deep-link e F5. Substitui o antigo restore()/openStudy/openTicket.
   useEffect(() => {
-    if (!me) return;
+    if (!uid) return;
     if (view === 'study' && routeId) {
       setActiveStudy(null);
       getJSON<{ study: StudyDetailT }>(`/api/studies/${routeId}`)
@@ -163,24 +169,24 @@ function useAppState() {
         .catch(() => router.replace('/feed'));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, routeId, me]);
+  }, [view, routeId, uid]);
 
   // Carrega listas ao entrar na tela (clique, deep-link, F5). Feed/salvos ficam no
   // efeito de filtro logo abaixo; vídeos/chamados/notificações/perfil aqui.
   useEffect(() => {
-    if (!me) return;
+    if (!uid) return;
     if (view === 'videos') loadVideos(videoTab);
     else if (view === 'tickets') loadTickets(ticketFilter);
     else if (view === 'notifications' || view === 'profile') loadNotifications();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, me]);
+  }, [view, uid]);
 
   // recarrega lista quando filtro/busca/período mudam no feed/salvos (e ao entrar neles)
   useEffect(() => {
-    if (!me) return;
+    if (!uid) return;
     if (view === 'feed') loadStudies({ filter, search, from: dateFrom, to: dateTo });
     if (view === 'saved') loadStudies({ saved: true, from: dateFrom, to: dateTo });
-  }, [filter, search, dateFrom, dateTo, view, me, loadStudies]);
+  }, [filter, search, dateFrom, dateTo, view, uid, loadStudies]);
 
   editingMessageRef.current = editingMessage;
   editingTicketRef.current = editingTicket;
@@ -192,7 +198,7 @@ function useAppState() {
   // oculta — `visibilitychange`. Sem F5: novo estudo, nova pergunta, nova
   // resposta, novo alerta aparecem sozinhos.
   useEffect(() => {
-    if (!me) return;
+    if (!uid) return;
     let cancelled = false;
     const timers: ReturnType<typeof setInterval>[] = [];
     const safe = (fn: () => Promise<unknown> | void) => () => {
@@ -230,7 +236,7 @@ function useAppState() {
     // Lista de chamados se está aberta
     if (view === 'tickets') timers.push(setInterval(safe(() => loadTickets(ticketFilter)), 15000));
     return () => { cancelled = true; timers.forEach(clearInterval); };
-  }, [me, view, activeStudy?.id, activeTicket?.id, filter, search, dateFrom, dateTo, ticketFilter, refreshMe, loadStudies, loadNotifications, loadTickets]);
+  }, [uid, view, activeStudy?.id, activeTicket?.id, filter, search, dateFrom, dateTo, ticketFilter, refreshMe, loadStudies, loadNotifications, loadTickets]);
 
   if (!me) return null;
 
