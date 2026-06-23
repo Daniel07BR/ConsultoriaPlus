@@ -1,6 +1,6 @@
 'use client';
-// Casca do app: layout (sidebar/topnav), troca de telas, toast e modais.
-// Todo o estado vive em AppProvider; as telas ficam em ./views e ./modals.
+// Casca do app (Fase 3): layout (sidebar/topnav), toast e modais. O conteúdo de
+// cada rota entra via {children}. O estado vem de AppProvider (montado no layout).
 import Avatar from './Avatar';
 import CategoryManager from './CategoryManager';
 import VideoForm from './VideoForm';
@@ -8,30 +8,13 @@ import {
   IconHome, IconTicket, IconBookmark, IconBell, IconPlus, IconLayout,
   IconSun, IconMoon, IconVideo, IconCheck,
 } from './icons';
-import { AppProvider, useApp } from './AppProvider';
-import { FeedView } from './views/FeedView';
-import { VideosView } from './views/VideosView';
-import { StudyView } from './views/StudyView';
-import { ComposeView } from './views/ComposeView';
-import { TicketsView } from './views/TicketsView';
-import { TicketView } from './views/TicketView';
-import { NewTicketView } from './views/NewTicketView';
-import { NotificationsView } from './views/NotificationsView';
-import { ProfileView } from './views/ProfileView';
+import { useApp } from './AppProvider';
 import { ViewsModal } from './modals/ViewsModal';
 import { AuditModal } from './modals/AuditModal';
 import { ReadsModal } from './modals/ReadsModal';
 import { EmbedModal } from './modals/EmbedModal';
 
-export default function AppClient() {
-  return (
-    <AppProvider>
-      <AppShell />
-    </AppProvider>
-  );
-}
-
-function AppShell() {
+export function AppShell({ children }: { children: React.ReactNode }) {
   const {
     me, theme, setTheme, nav, setNav, acting, setActing, view,
     isConsultor, openTicketCount, unreadCount, savedCount, categories, flash,
@@ -138,15 +121,7 @@ function AppShell() {
       {/* MAIN */}
       <main style={{ marginLeft: sidebar ? 268 : 0, minHeight: '100vh' }}>
         <div style={{ maxWidth: sidebar ? 780 : 1100, margin: '0 auto', padding: '0 28px 100px' }}>
-          {(view === 'feed' || view === 'saved') && <FeedView />}
-          {view === 'videos' && <VideosView />}
-          {view === 'study' && <StudyView />}
-          {view === 'compose' && <ComposeView />}
-          {view === 'tickets' && <TicketsView />}
-          {view === 'ticket' && <TicketView />}
-          {view === 'newticket' && <NewTicketView />}
-          {view === 'notifications' && <NotificationsView />}
-          {view === 'profile' && <ProfileView />}
+          {children}
         </div>
       </main>
 
