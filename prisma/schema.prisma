@@ -41,6 +41,7 @@ model AppUser {
   videos        Video[]
   videoWatches  VideoWatch[]
   studyViews    StudyView[]
+  messageReads  TicketMessageRead[]
 
   @@map("app_users")
 }
@@ -234,9 +235,24 @@ model TicketMessage {
   createdAt DateTime @default(now()) @map("created_at")
 
   revisions TicketMessageRevision[]
+  reads     TicketMessageRead[]
 
   @@index([ticketId])
   @@map("ticket_messages")
+}
+
+/// Recibo de leitura (estilo WhatsApp): registra que um usuário viu uma mensagem.
+/// Criado quando alguém (que não é o autor) abre o chamado. Idempotente por (mensagem, usuário).
+model TicketMessageRead {
+  messageId String        @map("message_id")
+  message   TicketMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String        @map("user_id")
+  user      AppUser       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  readAt    DateTime      @default(now()) @map("read_at")
+
+  @@id([messageId, userId])
+  @@index([messageId])
+  @@map("ticket_message_reads")
 }
 
 /// Trilha de auditoria de um chamado: edição/exclusão de mensagem (messageId

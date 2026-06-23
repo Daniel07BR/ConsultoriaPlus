@@ -3,13 +3,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Avatar from './Avatar';
 import CategoryManager from './CategoryManager';
 import VideoForm, { type VideoInput } from './VideoForm';
-import { catColor, statusMeta, timeAgo, linkKind, linkLabel, embedUrl, RATING_LABELS, youtubeThumb } from '@/lib/present';
+import { catColor, statusMeta, timeAgo, dateTime, linkKind, linkLabel, embedUrl, RATING_LABELS, youtubeThumb } from '@/lib/present';
 import { getJSON, postJSON } from '@/lib/client';
 import {
   IconHome, IconTicket, IconBookmark, IconBell, IconPlus, IconHeart, IconComment, IconFile, IconLink,
   IconSearch, IconArrowRight, IconArrowLeft, IconCheck, IconSun, IconMoon, IconLayout, IconSend,
   IconLogout, IconQuestion, IconX, IconPlay, IconImage, IconExternal, IconVideo, IconRefresh,
-  IconThumbsUp, IconEdit,
+  IconThumbsUp, IconEdit, IconCheckDouble,
 } from './icons';
 
 // ícone do anexo conforme o tipo de link
@@ -120,9 +120,11 @@ interface TicketCard {
   id: string; number: number; subject: string; category: string; status: string; rating: number | null; ratingLabel: string | null; createdAt: string;
   author: { name: string; avatar: string | null; department: string | null }; msgCount: number; lastPreview: string;
 }
+interface ReadReceiptT { name: string; avatar: string | null; role: string; readAt: string }
 interface MessageT {
   id: string; author: { name: string; avatar: string | null; department: string | null }; role: string; text: string; mine: boolean; createdAt: string;
   edited: boolean; deleted: boolean; deletedReason: string | null; deletedByName: string | null; deletedAt: string | null;
+  reads: ReadReceiptT[];
 }
 interface TicketRefT { id: string; number: number; subject: string; status: string; createdAt: string; author: { name: string; avatar: string | null } }
 interface AuditItemT { id: string; action: string; previousText: string; newText: string | null; reason: string | null; editorName: string; editorRole: string; messageAuthor: string | null; messageRole: string | null; createdAt: string }
@@ -143,7 +145,7 @@ const chipBase: React.CSSProperties = { display: 'inline-flex', alignItems: 'cen
 function ticketSig(t: TicketDetailT): string {
   return JSON.stringify({
     s: t.subject, r: t.reference?.id ?? null, st: t.status,
-    m: t.messages.map((m) => [m.id, m.text, m.edited, m.deleted, m.deletedReason]),
+    m: t.messages.map((m) => [m.id, m.text, m.edited, m.deleted, m.deletedReason, m.reads.length]),
   });
 }
 
@@ -161,6 +163,7 @@ export default function AppClient() {
   const [notifications, setNotifications] = useState<NotifT[]>([]);
   const [viewsModal, setViewsModal] = useState<{ studyId: string; title: string; data: ViewsPayload | null } | null>(null);
   const [auditModal, setAuditModal] = useState<{ number: number; items: AuditItemT[] | null } | null>(null);
+  const [readsModal, setReadsModal] = useState<{ preview: string; items: ReadReceiptT[] } | null>(null);
   const [editingTicket, setEditingTicket] = useState<{ subject: string } | null>(null);
   const [editRef, setEditRef] = useState<{ id: string; number: number; subject: string } | null>(null);
   // Refs com o estado de edição mais recente — lidos dentro do polling sem recriar timers.
@@ -306,6 +309,7 @@ export default function AppClient() {
         if (editingMessageRef.current || editingTicketRef.current) return;
         const d = await getJSON<{ ticket: TicketDetailT }>(`/api/tickets/${id}`);
         setActiveTicket((cur) => (cur && cur.id === id && ticketSig(cur) !== ticketSig(d.ticket) ? d.ticket : cur));
+        markTicketSeen(id); // confirma leitura de mensagens que chegaram enquanto o chamado está aberto
       }), 8000));
     }
     // Lista de notificações se está aberta
@@ -335,7 +339,9 @@ export default function AppClient() {
   const goVideos = async () => { go('videos'); await loadVideos(videoTab); };
 
   const openStudy = async (id: string) => { setView('study'); setActiveStudy(null); scrollTop(); const d = await getJSON<{ study: StudyDetailT }>(`/api/studies/${id}`); setActiveStudy(d.study); };
-  const openTicket = async (id: string) => { setView('ticket'); setActiveTicket(null); setTicketDraft(''); setEditingTicket(null); setEditRef(null); setRefQuery(''); setRefResults([]); scrollTop(); const d = await getJSON<{ ticket: TicketDetailT }>(`/api/tickets/${id}`); setActiveTicket(d.ticket); };
+  // Marca as mensagens do chamado como lidas (recibo "visto") — fire-and-forget.
+  const markTicketSeen = (id: string) => { try { void postJSON(`/api/tickets/${id}/seen`); } catch { /* silencioso */ } };
+  const openTicket = async (id: string) => { setView('ticket'); setActiveTicket(null); setTicketDraft(''); setEditingTicket(null); setEditRef(null); setRefQuery(''); setRefResults([]); scrollTop(); const d = await getJSON<{ ticket: TicketDetailT }>(`/api/tickets/${id}`); setActiveTicket(d.ticket); markTicketSeen(id); };
 
   // ---- ações ----
   const toggleLike = async (id: string) => {
@@ -852,6 +858,37 @@ export default function AppClient() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Card: quem visualizou a mensagem (recibo "visto") + data/hora */}
+      {readsModal && (
+        <div onClick={() => setReadsModal(null)} style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(20, 8, 14, 0.55)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, animation: 'cpFade .2s ease' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 420, background: 'var(--surface)', color: 'var(--fg)', borderRadius: 20, border: '2px solid var(--accent)', boxShadow: '0 24px 60px rgba(255, 92, 137, 0.28), 0 30px 80px rgba(0,0,0,0.35)', overflow: 'hidden', animation: 'cpPop .28s cubic-bezier(.2,.9,.3,1.2)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ width: 38, height: 38, borderRadius: 11, background: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)' }}><IconCheckDouble size={20} stroke="var(--accent)" sw={2.4} /></div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="font-grotesk" style={{ fontWeight: 700, fontSize: 15.5 }}>Visualizada por</div>
+                {readsModal.preview && <div style={{ fontSize: 12, color: 'var(--fg3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{readsModal.preview}</div>}
+              </div>
+              <button onClick={() => setReadsModal(null)} title="Fechar" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--fg2)', cursor: 'pointer' }}><IconX size={16} /></button>
+            </div>
+            <div style={{ padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {readsModal.items.map((r, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <Avatar name={r.name} avatar={r.avatar} size={36} role={r.role === 'consultor' ? 'consultor' : 'cliente'} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                      <span style={{ fontWeight: 700, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.name}</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.03em', padding: '2px 8px', borderRadius: 999, background: r.role === 'consultor' ? 'var(--accent-soft)' : 'var(--surface2)', color: r.role === 'consultor' ? 'var(--accent)' : 'var(--fg3)', border: r.role === 'consultor' ? 'none' : '1px solid var(--border)' }}>{r.role === 'consultor' ? 'Consultor' : 'Cliente'}</span>
+                    </div>
+                    <div style={{ fontSize: 12.5, color: 'var(--fg3)', marginTop: 2 }}>{dateTime(r.readAt)}</div>
+                  </div>
+                  <IconCheckDouble size={16} stroke="var(--accent)" sw={2.4} />
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -1533,6 +1570,20 @@ export default function AppClient() {
                   </div>
                 ) : (
                   <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}><Linkify text={m.text} /></p>
+                )}
+                {/* Recibo de leitura ("visto"), só na própria mensagem e quando não excluída */}
+                {m.mine && !del && editingMessage?.id !== m.id && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 6 }}>
+                    {m.reads.length > 0 ? (
+                      <button onClick={() => setReadsModal({ preview: m.text, items: m.reads })} title="Ver quem visualizou e quando" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 4px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 11, fontWeight: 700, color: 'var(--accent)' }}>
+                        <IconCheckDouble size={15} stroke="var(--accent)" sw={2.4} /> Visto{m.reads.length > 1 ? ` · ${m.reads.length}` : ` por ${m.reads[0].name.split(' ')[0]}`}
+                      </button>
+                    ) : (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: 'var(--fg3)' }}>
+                        <IconCheck size={13} stroke="var(--fg3)" sw={2.4} /> Enviada
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
