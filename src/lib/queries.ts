@@ -204,6 +204,7 @@ export async function getTicket(me: CurrentUser, id: string) {
     // Responder: dono ou consultor, e não fechado. Avaliar/fechar: só o dono, se ainda não fechou.
     canReply: (isOwner || me.canConsultor) && !isClosed,
     canClose: isOwner && !isClosed,
+    canEdit: (isOwner || me.canConsultor) && !isClosed, // editar título / citação
     auditCount, // só interessa ao consultor; controla o botão Auditoria no client
     messages: t.messages.map((m) => {
       const deleted = !!m.deletedAt;
