@@ -65,6 +65,12 @@ export function timeAgo(iso: string | Date): string {
   return d.toLocaleDateString('pt-BR');
 }
 
+/** Data e hora completas (ex.: 23/06/2026 14:35) — usado no card de "visto". */
+export function dateTime(iso: string | Date): string {
+  const d = typeof iso === 'string' ? new Date(iso) : iso;
+  return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
 export function avatarGradient(role: string): string {
   return role === 'consultor'
     ? 'linear-gradient(135deg,#ff5c89,#fda8bf)'

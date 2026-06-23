@@ -34,6 +34,7 @@ export const IconQuestion = (p: P) => (<S {...p}><circle cx="12" cy="12" r="9.5"
 export const IconX = (p: P) => (<S {...p}><path d="M18 6L6 18M6 6l12 12" /></S>);
 export const IconClip = (p: P) => (<S {...p}><path d="M21.4 11.05l-9 9a5 5 0 0 1-7.07-7.07l9-9a3.3 3.3 0 0 1 4.7 4.7l-9 9a1.66 1.66 0 0 1-2.35-2.35l8.3-8.28" /></S>);
 export const IconEdit = (p: P) => (<S {...p}><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" /></S>);
+export const IconCheckDouble = (p: P) => (<S {...p}><path d="M1.5 12.5l4 4 6.5-7.5" /><path d="M10.5 16.5l1 1 9-10.5" /></S>);
 export const IconPlay = (p: P) => (<S {...p}><path d="M8 5v14l11-7z" /></S>);
 export const IconVideo = (p: P) => (<S {...p}><rect x="2" y="5" width="15" height="14" rx="2" /><path d="M17 9l5-3v12l-5-3z" /></S>);
 export const IconImage = (p: P) => (<S {...p}><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" /></S>);

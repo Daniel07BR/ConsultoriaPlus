@@ -180,7 +180,10 @@ export async function getTicket(me: CurrentUser, id: string) {
       reference: { select: { id: true, number: true, subject: true } },
       messages: {
         orderBy: { createdAt: 'asc' },
-        include: { author: { select: { name: true, avatar: true, department: true } } },
+        include: {
+          author: { select: { name: true, avatar: true, department: true } },
+          reads: { include: { user: { select: { id: true, name: true, avatar: true } } } },
+        },
       },
     },
   });
@@ -222,6 +225,16 @@ export async function getTicket(me: CurrentUser, id: string) {
         deletedAt: m.deletedAt ? m.deletedAt.toISOString() : null,
         mine: m.authorId === me.user.id,
         createdAt: m.createdAt.toISOString(),
+        // Quem leu esta mensagem (estilo "visto"): papel = cliente se for quem abriu, senão consultor.
+        reads: m.reads
+          .slice()
+          .sort((a, b) => a.readAt.getTime() - b.readAt.getTime())
+          .map((r) => ({
+            name: r.user.name,
+            avatar: r.user.avatar,
+            role: r.userId === t.requesterId ? 'cliente' : 'consultor',
+            readAt: r.readAt.toISOString(),
+          })),
       };
     }),
   };
