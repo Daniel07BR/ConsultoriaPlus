@@ -17,7 +17,7 @@ import { EmbedModal } from './modals/EmbedModal';
 export function AppShell({ children }: { children: React.ReactNode }) {
   const {
     me, theme, setTheme, nav, setNav, acting, setActing, view,
-    isConsultor, openTicketCount, unreadCount, savedCount, categories, flash,
+    isConsultor, unseenTicketCount, unreadCount, savedCount, categories, flash,
     catManagerOpen, setCatManagerOpen, videoFormOpen, setVideoFormOpen, editingVideo, setEditingVideo,
     createCategory, updateCategory, deleteCategory, saveVideo,
     goFeed, goSaved, goTickets, goNotifications, goProfile, goVideos, onPrimary,
@@ -42,7 +42,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (!me.canSwitch) return null;
     return (
       <div style={{ display: 'flex', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: horizontal ? 11 : 13, padding: horizontal ? 3 : 4, gap: horizontal ? 3 : 4 }}>
-        <button onClick={() => setActing('cliente')} style={roleBtn(!isConsultor)}>Cliente</button>
+        <button onClick={() => setActing('cliente')} style={roleBtn(!isConsultor)}>Usuário</button>
         <button onClick={() => setActing('consultor')} style={roleBtn(isConsultor)}>Consultor</button>
       </div>
     );
@@ -65,7 +65,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <button onClick={goFeed} style={navBtn(view === 'feed' || view === 'study', false)}><IconHome size={19} /><span>Feed de estudos</span></button>
             <button onClick={goVideos} style={navBtn(view === 'videos', false)}><IconVideo size={19} /><span>Vídeos</span></button>
-            <button onClick={goTickets} style={navBtn(view === 'tickets' || view === 'ticket', false)}><IconTicket size={19} /><span>Chamados</span>{openTicketCount > 0 && <span style={ticketBadge}>{openTicketCount}</span>}</button>
+            <button onClick={goTickets} style={navBtn(view === 'tickets' || view === 'ticket', false)}><IconTicket size={19} /><span>Chamados</span>{unseenTicketCount > 0 && <span style={ticketBadge}>{unseenTicketCount}</span>}</button>
             <button onClick={goSaved} style={navBtn(view === 'saved', false)}><IconBookmark size={19} /><span style={{ flex: 1 }}>Estudos salvos</span><span style={{ fontSize: 12, color: 'var(--fg3)', fontWeight: 700 }}>{savedCount}</span></button>
             <button onClick={goNotifications} style={navBtn(view === 'notifications', false)}><IconBell size={19} /><span style={{ flex: 1 }}>Notificações</span>{unreadCount > 0 && <span style={notifBadge}>{unreadCount}</span>}</button>
           </nav>
@@ -104,7 +104,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <nav style={{ display: 'flex', gap: 6 }}>
               <button onClick={goFeed} style={navBtn(view === 'feed' || view === 'study', true)}>Feed</button>
               <button onClick={goVideos} style={navBtn(view === 'videos', true)}>Vídeos</button>
-              <button onClick={goTickets} style={navBtn(view === 'tickets' || view === 'ticket', true)}>Chamados {openTicketCount > 0 && <span style={ticketBadge}>{openTicketCount}</span>}</button>
+              <button onClick={goTickets} style={navBtn(view === 'tickets' || view === 'ticket', true)}>Chamados {unseenTicketCount > 0 && <span style={ticketBadge}>{unseenTicketCount}</span>}</button>
               <button onClick={goSaved} style={navBtn(view === 'saved', true)}>Salvos</button>
             </nav>
             <div style={{ flex: 1 }} />

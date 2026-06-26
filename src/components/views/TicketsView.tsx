@@ -1,12 +1,12 @@
 'use client';
 // Lista de chamados (fila/meus + histórico). Extraído de AppClient (Fase 2).
-import { IconPlus, IconSearch } from '../icons';
+import { IconPlus, IconSearch, IconCheck } from '../icons';
 import { chipBase, inputStyle, dateInput, miniBtn } from '../ui/formKit';
 import { useApp } from '../AppProvider';
 import { TicketCardItem } from './TicketCardItem';
 
 export function TicketsView() {
-  const { setTicketTab, loadHistory, hist, setHist, ticketTab, isConsultor, startNewTicket, ticketFilter, setTicketFilter, loadTickets, tickets, historyTickets } = useApp();
+  const { setTicketTab, loadHistory, hist, setHist, ticketTab, isConsultor, startNewTicket, ticketFilter, setTicketFilter, loadTickets, tickets, historyTickets, unseenTicketCount, markAllTicketsSeen } = useApp();
   // Finalizados (fechado) saem da fila e ficam só no Histórico.
   const tf = ['todos', 'aberto', 'andamento', 'respondido'];
   const tfLabel: Record<string, string> = { todos: 'Todos', aberto: 'Aberto', andamento: 'Em andamento', respondido: 'Respondido' };
@@ -27,8 +27,14 @@ export function TicketsView() {
 
       {ticketTab === 'meus' ? (
         <>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9, marginBottom: 22 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 9, marginBottom: 22 }}>
             {tf.map((k) => { const active = ticketFilter === k; return <button key={k} onClick={() => { setTicketFilter(k); loadTickets(k); }} style={{ ...chipBase, background: active ? 'var(--accent)' : 'var(--surface)', color: active ? '#fff' : 'var(--fg2)', border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}` }}>{tfLabel[k]}</button>; })}
+            {unseenTicketCount > 0 && (
+              <>
+                <div style={{ flex: 1 }} />
+                <button onClick={markAllTicketsSeen} title="Marcar todos os chamados como vistos" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 15px', borderRadius: 11, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg2)', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}><IconCheck size={15} sw={2.2} /> Marcar todos como vistos</button>
+              </>
+            )}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>{tickets.map((t) => <TicketCardItem key={t.id} t={t} />)}</div>
           {tickets.length === 0 && (

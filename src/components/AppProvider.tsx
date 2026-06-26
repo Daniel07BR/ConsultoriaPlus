@@ -28,6 +28,23 @@ function useAppState() {
   const [nav, setNav] = useState<'sidebar' | 'top'>('sidebar');
   const [acting, setActing] = useState<Acting>('consultor');
 
+  // Preferências persistidas (tema + posição da barra de navegação). A leitura roda
+  // num efeito de montagem (não no init do useState) p/ não divergir do HTML do SSR.
+  // Como a app só renderiza a casca depois que `me` carrega (fetch assíncrono), o
+  // valor salvo já está aplicado antes da primeira pintura real — sem "piscar".
+  const prefsLoaded = useRef(false);
+  useEffect(() => {
+    try {
+      const t = localStorage.getItem('cp.theme');
+      if (t === 'dark' || t === 'light') setTheme(t);
+      const n = localStorage.getItem('cp.nav');
+      if (n === 'top' || n === 'sidebar') setNav(n);
+    } catch { /* localStorage indisponível — segue com o padrão */ }
+    prefsLoaded.current = true;
+  }, []);
+  useEffect(() => { if (prefsLoaded.current) { try { localStorage.setItem('cp.theme', theme); } catch {} } }, [theme]);
+  useEffect(() => { if (prefsLoaded.current) { try { localStorage.setItem('cp.nav', nav); } catch {} } }, [nav]);
+
   const [studies, setStudies] = useState<StudyCard[]>([]);
   const [activeStudy, setActiveStudy] = useState<StudyDetailT | null>(null);
   const [tickets, setTickets] = useState<TicketCard[]>([]);
@@ -559,8 +576,19 @@ function useAppState() {
   };
 
   const openTicketCount = me.counts.openTickets;
+  const unseenTicketCount = me.counts.unseenTickets;
   const unreadCount = me.counts.unread;
   const savedCount = me.counts.saved;
+
+  // "Marcar todos como vistos": zera os alertas de chamado de uma vez. Marca como
+  // lidas todas as mensagens (da outra ponta) dos chamados acessíveis e recarrega
+  // contadores + a lista aberta.
+  const markAllTicketsSeen = async () => {
+    await postJSON('/api/tickets/seen-all');
+    flashMsg('Alertas de chamado limpos');
+    await refreshMe();
+    if (view === 'tickets') loadTickets(ticketFilter);
+  };
 
   return {
     // navegação derivada de rota
@@ -581,7 +609,7 @@ function useAppState() {
     commentDraft, setCommentDraft, commentIsQuestion, setCommentIsQuestion, ticketDraft, setTicketDraft,
     commentInputRef, ticketInputRef, flash,
     // derivados
-    isConsultor, categories, catNames, colorOf, firstCat, openTicketCount, unreadCount, savedCount,
+    isConsultor, categories, catNames, colorOf, firstCat, openTicketCount, unseenTicketCount, unreadCount, savedCount,
     // loaders
     refreshMe, loadStudies, loadTickets, loadHistory, loadNotifications, loadMoreNotifications, loadVideos, flashMsg,
     // handlers
@@ -591,7 +619,7 @@ function useAppState() {
     createCategory, updateCategory, deleteCategory, openLink, cancelCompose, startNewTicket,
     searchRefTickets, selectRefTicket, startEditTicket, cancelEditTicket, pickEditRef, saveTicketEdit,
     submitTicket, sendTicketReply, closeTicket, saveVideo, deleteVideo, playVideo, toggleWatched,
-    reclassifyVideo, syncVideos, openNotif, markAllRead, logout, onPrimary,
+    reclassifyVideo, syncVideos, openNotif, markAllRead, markAllTicketsSeen, logout, onPrimary,
   };
 }
 

@@ -10,7 +10,7 @@ export interface Me {
   canConsultor: boolean;
   canSwitch: boolean;
   defaultView: Acting;
-  counts: { openTickets: number; saved: number; unread: number };
+  counts: { openTickets: number; unseenTickets: number; saved: number; unread: number };
   categories: CategoryT[];
 }
 export interface CategoryT { id: string; name: string; color: string }
@@ -30,7 +30,7 @@ export interface CommentT { id: string; author: { name: string; avatar: string |
 export interface StudyDetailT extends Omit<StudyCard, 'excerpt'> { body: string[]; comments: CommentT[] }
 export interface TicketCard {
   id: string; number: number; subject: string; category: string; status: string; rating: number | null; ratingLabel: string | null; createdAt: string;
-  author: { name: string; avatar: string | null; department: string | null }; msgCount: number; lastPreview: string;
+  author: { name: string; avatar: string | null; department: string | null }; msgCount: number; lastPreview: string; unseen: number;
 }
 export interface ReadReceiptT { name: string; avatar: string | null; role: string; readAt: string }
 export interface MessageT {

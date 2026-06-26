@@ -114,9 +114,13 @@ function ticketScope(me: CurrentUser): Record<string, unknown> {
 
 function ticketSummary(t: {
   id: string; number: number; subject: string; category: string; status: string; rating: number | null; ratingLabel: string | null;
-  createdAt: Date; requester: { name: string; avatar: string | null; department?: string | null }; messages: { text: string }[];
-}) {
+  createdAt: Date; requester: { name: string; avatar: string | null; department?: string | null };
+  messages: { text: string; authorId: string; deletedAt: Date | null; reads: { userId: string }[] }[];
+}, meId: string) {
   const last = t.messages[t.messages.length - 1];
+  // "Não vistas" para mim: mensagens da outra ponta (não minhas), não excluídas e
+  // sem recibo de leitura meu. É o que alimenta a marcação por chamado e o badge do menu.
+  const unseen = t.messages.filter((m) => !m.deletedAt && m.authorId !== meId && m.reads.length === 0).length;
   return {
     id: t.id,
     number: t.number,
@@ -129,6 +133,7 @@ function ticketSummary(t: {
     author: { name: t.requester.name, avatar: t.requester.avatar, department: (t.requester as { department?: string | null }).department ?? null },
     msgCount: t.messages.length,
     lastPreview: last ? (last.text.length > 150 ? last.text.slice(0, 150).trim() + '…' : last.text) : '',
+    unseen,
   };
 }
 
@@ -140,14 +145,14 @@ export async function listTickets(me: CurrentUser, status?: string) {
   const tickets = await prisma.ticket.findMany({
     where,
     orderBy: { updatedAt: 'desc' },
-    include: { requester: { select: { name: true, avatar: true, department: true } }, messages: { orderBy: { createdAt: 'asc' }, select: { text: true } } },
+    include: { requester: { select: { name: true, avatar: true, department: true } }, messages: { orderBy: { createdAt: 'asc' }, select: { text: true, authorId: true, deletedAt: true, reads: { where: { userId: me.user.id }, select: { userId: true } } } } },
   });
-  return tickets.map(ticketSummary);
+  return tickets.map((t) => ticketSummary(t, me.user.id));
 }
 
 /** Histórico global: TODOS os chamados, visível a todos. Busca por título, autor e período. */
 export async function listTicketsHistory(
-  _me: CurrentUser,
+  me: CurrentUser,
   opts: { q?: string; requester?: string; from?: string; to?: string } = {},
 ) {
   const where: Record<string, unknown> = {};
@@ -167,9 +172,9 @@ export async function listTicketsHistory(
   const tickets = await prisma.ticket.findMany({
     where,
     orderBy: { createdAt: 'desc' },
-    include: { requester: { select: { name: true, avatar: true, department: true } }, messages: { orderBy: { createdAt: 'asc' }, select: { text: true } } },
+    include: { requester: { select: { name: true, avatar: true, department: true } }, messages: { orderBy: { createdAt: 'asc' }, select: { text: true, authorId: true, deletedAt: true, reads: { where: { userId: me.user.id }, select: { userId: true } } } } },
   });
-  return tickets.map(ticketSummary);
+  return tickets.map((t) => ticketSummary(t, me.user.id));
 }
 
 export async function getTicket(me: CurrentUser, id: string) {
@@ -182,7 +187,7 @@ export async function getTicket(me: CurrentUser, id: string) {
         orderBy: { createdAt: 'asc' },
         include: {
           author: { select: { name: true, avatar: true, department: true } },
-          reads: { include: { user: { select: { id: true, name: true, avatar: true } } } },
+          reads: { include: { user: { select: { id: true, name: true, avatar: true, baseRole: true } } } },
         },
       },
     },
@@ -226,7 +231,11 @@ export async function getTicket(me: CurrentUser, id: string) {
         mine: m.authorId === me.user.id,
         createdAt: m.createdAt.toISOString(),
         // Quem leu esta mensagem (estilo "visto"): papel = cliente se for quem abriu, senão consultor.
+        // Só conta como "visto" a leitura do CLIENTE dono ou de um CONSULTOR de verdade
+        // (base_role 'consultor'). Diretoria/admin ('both') têm acesso e suas leituras são
+        // registradas p/ zerar o alerta deles, mas NÃO devem aparecer como recibo de leitura.
         reads: m.reads
+          .filter((r) => r.userId === t.requesterId || r.user.baseRole === 'consultor')
           .slice()
           .sort((a, b) => a.readAt.getTime() - b.readAt.getTime())
           .map((r) => ({
@@ -292,12 +301,21 @@ export async function searchTickets(me: CurrentUser, q: string, excludeId?: stri
 // ---------- Contadores / notificações ----------
 
 export async function counts(me: CurrentUser) {
-  const [openTickets, saved, unread] = await Promise.all([
+  const [openTickets, saved, unread, unseenTickets] = await Promise.all([
     prisma.ticket.count({ where: { ...ticketScope(me), status: { in: ['aberto', 'andamento'] } } }),
     prisma.studySave.count({ where: { userId: me.user.id } }),
     prisma.notification.count({ where: { userId: me.user.id, read: false } }),
+    // Chamados (não fechados) com pelo menos uma mensagem da outra ponta ainda não
+    // vista por mim — é o número que vai no badge do menu "Chamados".
+    prisma.ticket.count({
+      where: {
+        ...ticketScope(me),
+        status: { not: 'fechado' },
+        messages: { some: { deletedAt: null, authorId: { not: me.user.id }, reads: { none: { userId: me.user.id } } } },
+      },
+    }),
   ]);
-  return { openTickets, saved, unread };
+  return { openTickets, unseenTickets, saved, unread };
 }
 
 export async function listNotifications(me: CurrentUser, opts: { limit?: number; offset?: number } = {}) {

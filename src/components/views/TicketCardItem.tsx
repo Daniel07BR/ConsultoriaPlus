@@ -11,8 +11,9 @@ import type { TicketCard } from '@/lib/types';
 export function TicketCardItem({ t }: { t: TicketCard }) {
   const { openTicket, colorOf } = useApp();
   const sm = statusMeta(t.status);
+  const hasUnseen = t.unseen > 0;
   return (
-    <button onClick={() => openTicket(t.id)} style={{ textAlign: 'left', color: 'var(--fg)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 1px 3px var(--shadow)', padding: '22px 24px', cursor: 'pointer' }}>
+    <button onClick={() => openTicket(t.id)} style={{ textAlign: 'left', color: 'var(--fg)', background: 'var(--surface)', border: `1px solid ${hasUnseen ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 20, boxShadow: hasUnseen ? '0 0 0 1px var(--accent), 0 4px 14px var(--accent-soft)' : '0 1px 3px var(--shadow)', padding: '22px 24px', cursor: 'pointer' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
         <Avatar name={t.author.name} avatar={t.author.avatar} size={44} role="cliente" />
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -24,6 +25,11 @@ export function TicketCardItem({ t }: { t: TicketCard }) {
           <div style={{ fontSize: 12.5, color: 'var(--fg3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Cliente · {timeAgo(t.createdAt)} · {t.msgCount} {t.msgCount === 1 ? 'mensagem' : 'mensagens'}</div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {hasUnseen && (
+            <span title={`${t.unseen} ${t.unseen === 1 ? 'atualização não vista' : 'atualizações não vistas'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 999, background: 'var(--accent)', color: '#fff', fontSize: 11.5, fontWeight: 700, whiteSpace: 'nowrap', boxShadow: '0 2px 8px var(--accent-soft)' }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} />{t.unseen} {t.unseen === 1 ? 'nova' : 'novas'}
+            </span>
+          )}
           <span style={ticketNumChip} title={`Chamado nº ${t.number}`}>#{t.number}</span>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '6px 12px', borderRadius: 999, background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 12, fontWeight: 700, color: 'var(--fg2)' }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: colorOf(t.category) }} />{t.category}</span>
         </div>

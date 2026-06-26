@@ -18,13 +18,10 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: 'sem acesso' }, { status: 403 });
   }
 
-  // O recibo de leitura só vale para o CLIENTE dono do chamado (confirma que viu a
-  // resposta) e para CONSULTORES de verdade (depto Consultoria). Diretoria/admin
-  // têm acesso total mas NÃO são consultores → não "consomem" o visto.
-  const isRealConsultor = me.role === 'consultor';
-  const canRecordRead = t.requesterId === me.user.id || isRealConsultor;
-  if (!canRecordRead) return NextResponse.json({ ok: true, recorded: false });
-
+  // Registra a leitura de QUEM tem acesso (dono, consultor, diretoria ou admin) p/
+  // zerar o alerta de "não vistas" desse usuário. A EXIBIÇÃO do recibo "visto" para a
+  // outra ponta é filtrada em getTicket: só conta dono + consultor de verdade — a
+  // leitura de diretoria/admin é registrada aqui mas não aparece como visto.
   const msgs = await prisma.ticketMessage.findMany({
     where: { ticketId: id, deletedAt: null, authorId: { not: me.user.id } },
     select: { id: true },
