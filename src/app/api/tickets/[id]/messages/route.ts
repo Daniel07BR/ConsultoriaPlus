@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { requireUser, resolveActingRole } from '@/lib/api';
 import { prisma } from '@/lib/db';
 import { notifyTicketReply } from '@/lib/notify';
-import { notifyNexusTicketReply } from '@/lib/notify-nexus';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,22 +26,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const role = resolveActingRole(me, b?.actingRole);
   const newStatus = role === 'consultor' ? 'respondido' : 'andamento';
 
-  const [message] = await prisma.$transaction([
+  await prisma.$transaction([
     prisma.ticketMessage.create({ data: { ticketId: id, authorId: me.user.id, role, text } }),
     prisma.ticket.update({ where: { id }, data: { status: newStatus } }),
   ]);
   await notifyTicketReply(ticket, { id: me.user.id, name: me.user.name }, role);
 
-  // Alerta cross-system no Nexus (sino em qualquer sistema + badge do card).
-  void notifyNexusTicketReply({
-    ticketId: ticket.id,
-    subject: ticket.subject,
-    messageId: message.id,
-    senderRole: role,
-    senderNexusUserId: me.user.nexusUserId,
-    senderAppUserId: me.user.id,
-    senderName: me.user.name,
-    requesterAppUserId: ticket.requesterId,
-  });
+  // (Sem push de comunicado ao Nexus: a mensagem do chamado fica só no sino
+  // interno do Consultoria Plus. O Nexus só recebe comunicado de ESTUDO novo.)
   return NextResponse.json({ ok: true, status: newStatus });
 }
