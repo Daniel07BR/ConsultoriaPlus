@@ -161,6 +161,9 @@ function useAppState() {
     (async () => {
       const m = await refreshMe();
       setActing(m.defaultView);
+      // Consultor abre os chamados já no filtro "Aberto" (sua fila de trabalho);
+      // cliente segue em "Todos". Só o padrão inicial — depois pode trocar.
+      if (m.defaultView === 'consultor') setTicketFilter('aberto');
     })();
   }, [refreshMe]);
 
