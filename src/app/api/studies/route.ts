@@ -89,6 +89,7 @@ export async function POST(req: NextRequest) {
       title,
       body: paras.join('\n\n'),
       category,
+      authorAvatar: me.user.avatar, // foto de perfil do autor vira a imagem do comunicado
     });
   } else {
     void notifyNexusAboutStudy({

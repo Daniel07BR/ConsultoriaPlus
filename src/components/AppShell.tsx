@@ -27,6 +27,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const themeVars: React.CSSProperties = theme === 'dark'
     ? { ['--bg' as string]: '#161214', ['--surface' as string]: '#201b1d', ['--surface2' as string]: '#272022', ['--border' as string]: 'rgba(255,255,255,0.09)', ['--fg' as string]: '#f4ecef', ['--fg2' as string]: '#b3a6ab', ['--fg3' as string]: '#7c6f74', ['--shadow' as string]: 'rgba(0,0,0,0.45)', ['--accent-soft' as string]: '#ff5c8933' }
     : {};
+  // Identidade própria do Feed de Gestão: troca o accent (rosa → índigo) enquanto
+  // se navega nas telas de gestão. Vence o themeVars (vem depois no spread).
+  const gestaoAccent: React.CSSProperties = feed === 'gestao'
+    ? { ['--accent' as string]: '#4f46e5', ['--accent-strong' as string]: '#4338ca', ['--accent-soft' as string]: theme === 'dark' ? '#4f46e533' : '#e8e7fb' }
+    : {};
   const sidebar = nav === 'sidebar';
   const navBtn = (active: boolean, horizontal: boolean): React.CSSProperties => ({
     display: 'flex', alignItems: 'center', gap: 11, padding: horizontal ? '9px 15px' : '11px 14px', borderRadius: 11, border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: 14, width: horizontal ? 'auto' : '100%', textAlign: 'left',
@@ -54,7 +59,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <div style={{ minHeight: '100vh', transition: 'background-color .3s ease, color .3s ease', ...themeVars, background: 'var(--bg)', color: 'var(--fg)' }}>
+    <div style={{ minHeight: '100vh', transition: 'background-color .3s ease, color .3s ease', ...themeVars, ...gestaoAccent, background: 'var(--bg)', color: 'var(--fg)' }}>
       {/* SIDEBAR */}
       {sidebar && (
         <aside style={{ position: 'fixed', left: 0, top: 0, bottom: 0, width: 268, background: 'var(--surface)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', padding: '24px 18px', zIndex: 20, transition: 'background-color .3s ease, border-color .3s ease' }}>

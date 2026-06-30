@@ -19,6 +19,7 @@ interface NotifyInput {
   title: string;
   body: string;
   category: string;
+  authorAvatar?: string | null; // foto de perfil do autor (data URI) — usada como imagem do comunicado
 }
 
 /**
@@ -83,6 +84,8 @@ export async function notifyNexusAboutGestaoStudy(input: NotifyInput): Promise<v
       content: excerpt(input.body),
       type: 'consultoria-plus',
       category: input.category,
+      // Sem capa: o comunicado usa a foto de perfil do próprio autor como imagem.
+      imageUrl: input.authorAvatar || undefined,
       recipientEmployeeIds,
       sourceRef: input.studyId,
     });
