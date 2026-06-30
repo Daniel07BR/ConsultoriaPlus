@@ -1,7 +1,7 @@
 // Tipos compartilhados do front-end (extraídos de AppClient na Fase 0 do refactor).
 // São tipos puros de dados — sem dependência de React ou de estado.
 
-export type View = 'feed' | 'saved' | 'study' | 'compose' | 'tickets' | 'ticket' | 'newticket' | 'notifications' | 'profile' | 'videos';
+export type View = 'feed' | 'saved' | 'study' | 'compose' | 'tickets' | 'ticket' | 'newticket' | 'notifications' | 'profile' | 'videos' | 'gestao' | 'gestaoStudy' | 'gestaoCompose';
 export type Acting = 'cliente' | 'consultor';
 
 export interface Me {
@@ -9,6 +9,7 @@ export interface Me {
   role: 'cliente' | 'consultor' | 'both';
   canConsultor: boolean;
   canSwitch: boolean;
+  canGestao: boolean;
   defaultView: Acting;
   counts: { openTickets: number; unseenTickets: number; saved: number; unread: number };
   categories: CategoryT[];
@@ -16,7 +17,7 @@ export interface Me {
 export interface CategoryT { id: string; name: string; color: string }
 export interface Attachment { kind: string; name: string; meta: string | null; url: string | null }
 export interface StudyCard {
-  id: string; title: string; category: string; excerpt: string; coverImage: string | null; readTime: string | null; createdAt: string;
+  id: string; feed: string; title: string; category: string; excerpt: string; coverImage: string | null; readTime: string | null; createdAt: string;
   author: { name: string; title: string | null; avatar: string | null; department: string | null };
   likes: number; liked: boolean; saved: boolean; commentCount: number; attachments: Attachment[];
   views: number; viewed: boolean;
@@ -27,7 +28,7 @@ export interface ViewsPayload {
   departments: { department: string; users: { name: string; avatar: string | null; cargo: string | null; viewedAt: string }[] }[];
 }
 export interface CommentT { id: string; author: { name: string; avatar: string | null; department: string | null }; role: string; text: string; isQuestion: boolean; mine: boolean; createdAt: string }
-export interface StudyDetailT extends Omit<StudyCard, 'excerpt'> { body: string[]; comments: CommentT[] }
+export interface StudyDetailT extends Omit<StudyCard, 'excerpt'> { mine: boolean; body: string[]; comments: CommentT[] }
 export interface TicketCard {
   id: string; number: number; subject: string; category: string; status: string; rating: number | null; ratingLabel: string | null; createdAt: string;
   author: { name: string; avatar: string | null; department: string | null }; msgCount: number; lastPreview: string; unseen: number;

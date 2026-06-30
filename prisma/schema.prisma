@@ -91,12 +91,15 @@ model VideoWatch {
 /// Categoria de estudos/chamados — gerenciável (criar/editar) por consultor/admin.
 model Category {
   id        String   @id @default(uuid())
-  name      String   @unique
+  name      String
+  feed      String   @default("estudos") // estudos | gestao — categorias próprias por feed
   color     String   @default("#ff5c89")
   position  Int      @default(0)
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  @@unique([feed, name])
+  @@index([feed, position])
   @@map("categories")
 }
 
@@ -104,6 +107,7 @@ model Study {
   id         String   @id @default(uuid())
   authorId   String   @map("author_id")
   author     AppUser  @relation(fields: [authorId], references: [id])
+  feed       String   @default("estudos") // estudos | gestao — separa o Feed de estudos do Feed de Gestão
   category   String
   title      String
   body       String // parágrafos separados por \n\n
@@ -120,8 +124,8 @@ model Study {
   saves       StudySave[]
   views       StudyView[]
 
-  @@index([category])
-  @@index([createdAt])
+  @@index([feed, category])
+  @@index([feed, createdAt])
   @@map("studies")
 }
 

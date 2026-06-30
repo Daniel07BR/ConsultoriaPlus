@@ -6,13 +6,20 @@ import { useApp } from '../AppProvider';
 import { StudyCardEl } from './StudyCardEl';
 
 export function FeedView() {
-  const { view, studies, dateFrom, setDateFrom, dateTo, setDateTo, search, setSearch, catNames, filter, setFilter, colorOf } = useApp();
+  const { view, feed, studies, dateFrom, setDateFrom, dateTo, setDateTo, search, setSearch, catNames, filter, setFilter, colorOf } = useApp();
   const isSaved = view === 'saved';
+  const isGestao = feed === 'gestao';
   const list = studies;
+  const heading = isSaved ? 'Estudos salvos' : isGestao ? 'Feed de Gestão' : 'Feed de estudos';
+  const subtitle = isSaved
+    ? 'Conteúdos que você guardou para ler depois.'
+    : isGestao
+      ? 'Publicações da liderança — gestores, encarregados, diretoria e consultoria. Publique, curta e comente.'
+      : 'Conteúdos da equipe de consultoria. Curta, comente e tire suas dúvidas.';
   return (
     <div style={{ paddingTop: 32, animation: 'cpFade .35s ease' }}>
-      <h1 className="font-grotesk" style={{ fontSize: 30, fontWeight: 700, letterSpacing: '-0.02em', margin: '0 0 4px' }}>{isSaved ? 'Estudos salvos' : 'Feed de estudos'}</h1>
-      <p style={{ margin: '0 0 18px', color: 'var(--fg2)', fontSize: 15 }}>{isSaved ? 'Conteúdos que você guardou para ler depois.' : 'Conteúdos da equipe de consultoria. Curta, comente e tire suas dúvidas.'}</p>
+      <h1 className="font-grotesk" style={{ fontSize: 30, fontWeight: 700, letterSpacing: '-0.02em', margin: '0 0 4px' }}>{heading}</h1>
+      <p style={{ margin: '0 0 18px', color: 'var(--fg2)', fontSize: 15 }}>{subtitle}</p>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
         <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--fg2)' }}>Período de publicação:</span>

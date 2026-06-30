@@ -30,6 +30,7 @@ export async function notifyOnComment(
   commenter: { id: string; name: string },
   isQuestion: boolean,
   role: string,
+  feed: string = 'estudos',
 ) {
   const study = await prisma.study.findUnique({
     where: { id: studyId },
@@ -37,6 +38,17 @@ export async function notifyOnComment(
   });
   if (!study) return;
   const t = { targetType: 'study', targetId: studyId };
+
+  // Feed de Gestão: sem papel consultor/cliente — qualquer comentário apenas
+  // avisa o autor da publicação (notificação interna, sem pool de consultores).
+  if (feed === 'gestao') {
+    if (study.authorId !== commenter.id) {
+      await prisma.notification.create({
+        data: { userId: study.authorId, kind: 'estudo', title: commenter.name, body: `comentou na sua publicação "${study.title}".`, ...t },
+      });
+    }
+    return;
+  }
 
   if (role === 'consultor') {
     // Avisa os clientes que comentaram/perguntaram nesse estudo.

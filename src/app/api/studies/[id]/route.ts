@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireUser } from '@/lib/api';
+import { requireUser, ensureFeedAccess } from '@/lib/api';
 import { prisma } from '@/lib/db';
 import { getStudy } from '@/lib/queries';
 import { linkKind, linkLabel } from '@/lib/present';
@@ -12,25 +12,31 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params;
   const study = await getStudy(me, id);
   if (!study) return NextResponse.json({ error: 'não encontrado' }, { status: 404 });
+  const denied = ensureFeedAccess(me, study.feed);
+  if (denied) return denied;
   return NextResponse.json({ study });
 }
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const me = await requireUser();
   if (me instanceof NextResponse) return me;
-  if (!me.canConsultor) return NextResponse.json({ error: 'sem permissão' }, { status: 403 });
   const { id } = await params;
 
-  const study = await prisma.study.findUnique({ where: { id }, select: { id: true } });
+  const study = await prisma.study.findUnique({ where: { id }, select: { id: true, feed: true, authorId: true } });
   if (!study) return NextResponse.json({ error: 'não encontrado' }, { status: 404 });
+  const denied = ensureFeedAccess(me, study.feed);
+  if (denied) return denied;
+  // Editar: estudos → consultor/admin; gestão → só o próprio autor.
+  const canEdit = study.feed === 'gestao' ? study.authorId === me.user.id : me.canConsultor;
+  if (!canEdit) return NextResponse.json({ error: 'sem permissão' }, { status: 403 });
 
   const b = await req.json().catch(() => null);
   const title = (b?.title || '').trim();
   if (!title) return NextResponse.json({ error: 'título obrigatório' }, { status: 400 });
 
-  const cats = await prisma.category.findMany({ orderBy: { position: 'asc' }, select: { name: true } });
+  const cats = await prisma.category.findMany({ where: { feed: study.feed }, orderBy: { position: 'asc' }, select: { name: true } });
   const names = cats.map((c) => c.name);
-  const category = names.includes(b?.category) ? b.category : names[0] || 'Tributário';
+  const category = names.includes(b?.category) ? b.category : names[0] || (study.feed === 'gestao' ? 'Geral' : 'Tributário');
 
   const bodyText: string = (b?.body || '').trim();
   const paras = bodyText ? bodyText.split(/\n{1,}/).map((p: string) => p.trim()).filter(Boolean) : ['(sem conteúdo)'];
@@ -60,10 +66,16 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const me = await requireUser();
   if (me instanceof NextResponse) return me;
-  if (!me.canConsultor) return NextResponse.json({ error: 'sem permissão' }, { status: 403 });
   const { id } = await params;
-  const study = await prisma.study.findUnique({ where: { id }, select: { id: true } });
+  const study = await prisma.study.findUnique({ where: { id }, select: { id: true, feed: true, authorId: true } });
   if (!study) return NextResponse.json({ error: 'não encontrado' }, { status: 404 });
+  const denied = ensureFeedAccess(me, study.feed);
+  if (denied) return denied;
+  // Excluir: estudos → consultor/admin; gestão → o próprio autor OU diretoria/admin (base_role 'both').
+  const canDelete = study.feed === 'gestao'
+    ? study.authorId === me.user.id || me.user.baseRole === 'both'
+    : me.canConsultor;
+  if (!canDelete) return NextResponse.json({ error: 'sem permissão' }, { status: 403 });
   await prisma.study.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }

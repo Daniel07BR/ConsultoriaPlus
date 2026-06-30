@@ -9,6 +9,9 @@ export function pathForView(view: View, id?: string): string {
     case 'saved': return '/salvos';
     case 'study': return id ? `/estudos/${id}` : '/feed';
     case 'compose': return '/publicar';
+    case 'gestao': return '/gestao';
+    case 'gestaoStudy': return id ? `/gestao/${id}` : '/gestao';
+    case 'gestaoCompose': return '/gestao/publicar';
     case 'videos': return '/videos';
     case 'tickets': return '/chamados';
     case 'ticket': return id ? `/chamados/${id}` : '/chamados';
@@ -21,6 +24,10 @@ export function pathForView(view: View, id?: string): string {
 
 // Deriva a tela (e o id, quando houver) a partir do pathname atual.
 export function viewFromPath(path: string): { view: View; routeId?: string } {
+  // Feed de Gestão — ordem importa: publicar → :id → base.
+  if (path.startsWith('/gestao/publicar')) return { view: 'gestaoCompose' };
+  if (path.startsWith('/gestao/')) return { view: 'gestaoStudy', routeId: path.split('/')[2] };
+  if (path.startsWith('/gestao')) return { view: 'gestao' };
   if (path.startsWith('/salvos')) return { view: 'saved' };
   if (path.startsWith('/videos')) return { view: 'videos' };
   if (path.startsWith('/publicar')) return { view: 'compose' };

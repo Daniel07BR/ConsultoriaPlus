@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireUser } from '@/lib/api';
+import { requireUser, ensureFeedAccess } from '@/lib/api';
 import { prisma } from '@/lib/db';
 import { listStudies } from '@/lib/queries';
 import { linkKind, linkLabel } from '@/lib/present';
-import { notifyNexusAboutStudy } from '@/lib/notify-nexus';
+import { notifyNexusAboutStudy, notifyNexusAboutGestaoStudy } from '@/lib/notify-nexus';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,12 +11,20 @@ export async function GET(req: NextRequest) {
   const me = await requireUser();
   if (me instanceof NextResponse) return me;
   const sp = req.nextUrl.searchParams;
+  const feed = sp.get('feed') === 'gestao' ? 'gestao' : 'estudos';
+  const savedOnly = sp.get('saved') === 'true';
+  // Listar o feed de gestão exige acesso (salvos é global e não filtra por feed).
+  if (feed === 'gestao' && !savedOnly) {
+    const denied = ensureFeedAccess(me, 'gestao');
+    if (denied) return denied;
+  }
   const studies = await listStudies(me, {
     filter: sp.get('filter') || undefined,
     search: sp.get('search') || undefined,
-    savedOnly: sp.get('saved') === 'true',
+    savedOnly,
     from: sp.get('from') || undefined,
     to: sp.get('to') || undefined,
+    feed,
   });
   return NextResponse.json({ studies });
 }
@@ -24,16 +32,23 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const me = await requireUser();
   if (me instanceof NextResponse) return me;
-  if (!me.canConsultor) return NextResponse.json({ error: 'apenas consultores publicam estudos' }, { status: 403 });
 
   const b = await req.json().catch(() => null);
+  const feed = b?.feed === 'gestao' ? 'gestao' : 'estudos';
+  // Permissão por feed: estudos → só consultor/admin; gestão → quem tem acesso ao feed.
+  if (feed === 'gestao') {
+    if (!me.canGestao) return NextResponse.json({ error: 'sem acesso ao feed de gestão' }, { status: 403 });
+  } else {
+    if (!me.canConsultor) return NextResponse.json({ error: 'apenas consultores publicam estudos' }, { status: 403 });
+  }
+
   const title = (b?.title || '').trim();
   if (!title) return NextResponse.json({ error: 'título obrigatório' }, { status: 400 });
 
-  // categoria validada contra o banco (cai na 1ª se inválida)
-  const cats = await prisma.category.findMany({ orderBy: { position: 'asc' }, select: { name: true } });
+  // categoria validada contra o banco do MESMO feed (cai na 1ª se inválida)
+  const cats = await prisma.category.findMany({ where: { feed }, orderBy: { position: 'asc' }, select: { name: true } });
   const names = cats.map((c) => c.name);
-  const category = names.includes(b?.category) ? b.category : names[0] || 'Tributário';
+  const category = names.includes(b?.category) ? b.category : names[0] || (feed === 'gestao' ? 'Geral' : 'Tributário');
 
   const bodyText: string = (b?.body || '').trim();
   const paras = bodyText ? bodyText.split(/\n{1,}/).map((p: string) => p.trim()).filter(Boolean) : ['(sem conteúdo)'];
@@ -54,6 +69,7 @@ export async function POST(req: NextRequest) {
   const study = await prisma.study.create({
     data: {
       authorId: me.user.id,
+      feed,
       category,
       title,
       body: paras.join('\n\n'),
@@ -65,13 +81,24 @@ export async function POST(req: NextRequest) {
 
   // Empurra como comunicado no Nexus (aba "Consultoria Plus" em /comunicados,
   // gate de leitura no portal, e ack volta como visualização aqui via webhook).
-  void notifyNexusAboutStudy({
-    studyId: study.id,
-    authorNexusUserId: me.user.nexusUserId,
-    title,
-    body: paras.join('\n\n'),
-    category,
-  });
+  // Estudo → todos com acesso ao sistema; Gestão → só quem acessa o feed de gestão.
+  if (feed === 'gestao') {
+    void notifyNexusAboutGestaoStudy({
+      studyId: study.id,
+      authorNexusUserId: me.user.nexusUserId,
+      title,
+      body: paras.join('\n\n'),
+      category,
+    });
+  } else {
+    void notifyNexusAboutStudy({
+      studyId: study.id,
+      authorNexusUserId: me.user.nexusUserId,
+      title,
+      body: paras.join('\n\n'),
+      category,
+    });
+  }
 
   return NextResponse.json({ id: study.id });
 }

@@ -11,11 +11,17 @@ function excerptOf(body: string): string {
 
 export async function listStudies(
   me: CurrentUser,
-  opts: { filter?: string; search?: string; savedOnly?: boolean; from?: string; to?: string } = {},
+  opts: { filter?: string; search?: string; savedOnly?: boolean; from?: string; to?: string; feed?: string } = {},
 ) {
   const where: Record<string, unknown> = {};
   if (opts.filter && opts.filter !== 'Todos') where.category = opts.filter;
-  if (opts.savedOnly) where.saves = { some: { userId: me.user.id } };
+  if (opts.savedOnly) {
+    // "Salvos" é global: abrange os dois feeds (o usuário só pode ter salvo o que acessa).
+    where.saves = { some: { userId: me.user.id } };
+  } else {
+    // Feed: separa estudos x gestão (o acesso ao feed de gestão é checado na rota).
+    where.feed = opts.feed === 'gestao' ? 'gestao' : 'estudos';
+  }
   const created: Record<string, Date> = {};
   if (opts.from) created.gte = new Date(opts.from + 'T00:00:00');
   if (opts.to) created.lte = new Date(opts.to + 'T23:59:59');
@@ -43,6 +49,7 @@ export async function listStudies(
 
   return studies.map((s) => ({
     id: s.id,
+    feed: s.feed,
     title: s.title,
     category: s.category,
     excerpt: excerptOf(s.body),
@@ -79,6 +86,8 @@ export async function getStudy(me: CurrentUser, id: string) {
   if (!s) return null;
   return {
     id: s.id,
+    feed: s.feed,
+    mine: s.authorId === me.user.id,
     title: s.title,
     category: s.category,
     body: s.body.split('\n\n'),

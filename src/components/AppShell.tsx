@@ -6,7 +6,7 @@ import CategoryManager from './CategoryManager';
 import VideoForm from './VideoForm';
 import {
   IconHome, IconTicket, IconBookmark, IconBell, IconPlus, IconLayout,
-  IconSun, IconMoon, IconVideo, IconCheck,
+  IconSun, IconMoon, IconVideo, IconCheck, IconUsers,
 } from './icons';
 import { useApp } from './AppProvider';
 import { ViewsModal } from './modals/ViewsModal';
@@ -16,11 +16,11 @@ import { EmbedModal } from './modals/EmbedModal';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const {
-    me, theme, setTheme, nav, setNav, acting, setActing, view,
+    me, theme, setTheme, nav, setNav, acting, setActing, view, feed,
     isConsultor, unseenTicketCount, unreadCount, savedCount, categories, flash,
     catManagerOpen, setCatManagerOpen, videoFormOpen, setVideoFormOpen, editingVideo, setEditingVideo,
     createCategory, updateCategory, deleteCategory, saveVideo,
-    goFeed, goSaved, goTickets, goNotifications, goProfile, goVideos, onPrimary,
+    goFeed, goGestao, goSaved, goTickets, goNotifications, goProfile, goVideos, onPrimary,
   } = useApp();
 
   // ---- estilos derivados ----
@@ -36,7 +36,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const ticketBadge: React.CSSProperties = { marginLeft: 'auto', background: 'var(--accent)', color: '#fff', minWidth: 20, height: 20, padding: '0 6px', borderRadius: 999, fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' };
   const notifBadge: React.CSSProperties = { background: 'var(--accent)', color: '#fff', minWidth: 19, height: 19, padding: '0 5px', borderRadius: 999, fontSize: 10.5, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' };
 
-  const primaryLabel = isConsultor ? 'Publicar estudo' : 'Abrir chamado';
+  const primaryLabel = feed === 'gestao' ? 'Publicar na Gestão' : isConsultor ? 'Publicar estudo' : 'Abrir chamado';
 
   const RoleSwitch = ({ horizontal }: { horizontal?: boolean }) => {
     if (!me.canSwitch) return null;
@@ -64,6 +64,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <button onClick={goFeed} style={navBtn(view === 'feed' || view === 'study', false)}><IconHome size={19} /><span>Feed de estudos</span></button>
+            {me.canGestao && <button onClick={goGestao} style={navBtn(view === 'gestao' || view === 'gestaoStudy' || view === 'gestaoCompose', false)}><IconUsers size={19} /><span>Feed de Gestão</span></button>}
             <button onClick={goVideos} style={navBtn(view === 'videos', false)}><IconVideo size={19} /><span>Vídeos</span></button>
             <button onClick={goTickets} style={navBtn(view === 'tickets' || view === 'ticket', false)}><IconTicket size={19} /><span>Chamados</span>{unseenTicketCount > 0 && <span style={ticketBadge}>{unseenTicketCount}</span>}</button>
             <button onClick={goSaved} style={navBtn(view === 'saved', false)}><IconBookmark size={19} /><span style={{ flex: 1 }}>Estudos salvos</span><span style={{ fontSize: 12, color: 'var(--fg3)', fontWeight: 700 }}>{savedCount}</span></button>
@@ -103,6 +104,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </div>
             <nav style={{ display: 'flex', gap: 6 }}>
               <button onClick={goFeed} style={navBtn(view === 'feed' || view === 'study', true)}>Feed</button>
+              {me.canGestao && <button onClick={goGestao} style={navBtn(view === 'gestao' || view === 'gestaoStudy' || view === 'gestaoCompose', true)}>Gestão</button>}
               <button onClick={goVideos} style={navBtn(view === 'videos', true)}>Vídeos</button>
               <button onClick={goTickets} style={navBtn(view === 'tickets' || view === 'ticket', true)}>Chamados {unseenTicketCount > 0 && <span style={ticketBadge}>{unseenTicketCount}</span>}</button>
               <button onClick={goSaved} style={navBtn(view === 'saved', true)}>Salvos</button>

@@ -11,15 +11,19 @@ import { Linkify } from './Linkify';
 
 export function StudyView() {
   const {
-    activeStudy, goFeed, colorOf, openLink, toggleLike, openViews, toggleSave, me, startEditStudy, deleteStudy,
+    activeStudy, goFeed, goGestao, colorOf, openLink, toggleLike, openViews, toggleSave, me, startEditStudy, deleteStudy,
     commentInputRef, commentDraft, setCommentDraft, submitComment, isConsultor, commentIsQuestion, setCommentIsQuestion,
     acting, editingComment, setEditingComment, setActing, saveComment, deleteComment,
   } = useApp();
   const s = activeStudy;
-  if (!s) return <div style={{ paddingTop: 60, textAlign: 'center', color: 'var(--fg3)' }}>Carregando estudo…</div>;
+  if (!s) return <div style={{ paddingTop: 60, textAlign: 'center', color: 'var(--fg3)' }}>Carregando…</div>;
+  const isGestao = s.feed === 'gestao';
+  // Editar: estudos → consultor/admin; gestão → só o autor. Excluir: + diretoria/admin.
+  const canEditStudy = isGestao ? s.mine : me.canConsultor;
+  const canDeleteStudy = isGestao ? (s.mine || me.role === 'both') : me.canConsultor;
   return (
     <div style={{ paddingTop: 28, animation: 'cpFade .35s ease' }}>
-      <button onClick={goFeed} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg2)', fontWeight: 700, fontSize: 13, cursor: 'pointer', marginBottom: 22 }}><IconArrowLeft size={15} sw={2.4} /> Voltar ao feed</button>
+      <button onClick={isGestao ? goGestao : goFeed} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg2)', fontWeight: 700, fontSize: 13, cursor: 'pointer', marginBottom: 22 }}><IconArrowLeft size={15} sw={2.4} /> {isGestao ? 'Voltar à Gestão' : 'Voltar ao feed'}</button>
       <article style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 22, boxShadow: '0 1px 3px var(--shadow)', padding: '34px 38px' }}>
         {s.coverImage && (
           <div style={{ textAlign: 'center', margin: '0 0 24px' }}>
@@ -58,11 +62,11 @@ export function StudyView() {
           <LikesHoverButton studyId={s.id} count={s.likes} liked={s.liked} onToggle={() => toggleLike(s.id)} label="curtidas" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontWeight: 700, fontSize: 14, color: s.liked ? 'var(--accent)' : 'var(--fg2)' }} />
           <button onClick={() => openViews(s.id, s.title)} title="Marcar como visualizado e ver quem viu" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontWeight: 700, fontSize: 14, color: s.viewed ? 'var(--accent)' : 'var(--fg2)' }}><IconThumbsUp size={19} fill={s.viewed ? 'var(--accent)' : 'none'} stroke={s.viewed ? 'var(--accent)' : 'currentColor'} />{s.views} visualizações</button>
           <button onClick={() => toggleSave(s.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontWeight: 700, fontSize: 14, color: s.saved ? 'var(--accent)' : 'var(--fg2)' }}><IconBookmark size={18} fill={s.saved ? 'var(--accent)' : 'none'} stroke={s.saved ? 'var(--accent)' : 'currentColor'} />{s.saved ? 'Salvo' : 'Salvar estudo'}</button>
-          {me.canConsultor && (
+          {(canEditStudy || canDeleteStudy) && (
             <>
               <div style={{ flex: 1 }} />
-              <button onClick={() => startEditStudy(s)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontWeight: 700, fontSize: 14, color: 'var(--fg2)' }}>Editar</button>
-              <button onClick={() => deleteStudy(s.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontWeight: 700, fontSize: 14, color: '#e0457a' }}><IconX size={16} sw={2.4} /></button>
+              {canEditStudy && <button onClick={() => startEditStudy(s)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontWeight: 700, fontSize: 14, color: 'var(--fg2)' }}>Editar</button>}
+              {canDeleteStudy && <button onClick={() => deleteStudy(s.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '10px 14px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontWeight: 700, fontSize: 14, color: '#e0457a' }}><IconX size={16} sw={2.4} /></button>}
             </>
           )}
         </div>

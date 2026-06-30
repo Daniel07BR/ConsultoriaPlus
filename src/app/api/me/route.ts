@@ -9,7 +9,9 @@ export async function GET() {
   const me = await requireUser();
   if (me instanceof NextResponse) return me;
   const c = await counts(me);
+  // Só as categorias do Feed de estudos; as do Feed de Gestão são carregadas à parte.
   const categories = await prisma.category.findMany({
+    where: { feed: 'estudos' },
     orderBy: [{ position: 'asc' }, { name: 'asc' }],
     select: { id: true, name: true, color: true },
   });
@@ -24,6 +26,7 @@ export async function GET() {
     role: me.role,
     canConsultor: me.canConsultor,
     canSwitch: me.canSwitch,
+    canGestao: me.canGestao,
     defaultView: me.defaultView,
     counts: c,
     categories,

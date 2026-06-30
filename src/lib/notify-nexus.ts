@@ -6,6 +6,7 @@
 import 'server-only';
 import { prisma } from './db';
 import { pushAnnouncementToNexus } from './nexus';
+import { canAccessGestao, effectiveRole } from './roles';
 
 function excerpt(body: string, max = 240): string {
   const first = (body.split('\n\n')[0] || '').trim();
@@ -56,6 +57,44 @@ export async function notifyNexusAboutStudy(input: NotifyInput): Promise<void> {
     }
   } catch (err) {
     console.error('[notify-nexus] failed for study', input.studyId, err);
+  }
+}
+
+/**
+ * Igual a notifyNexusAboutStudy, mas para o Feed de Gestão: o comunicado vai
+ * APENAS para quem tem acesso ao feed (consultoria/diretoria/admin + cargos de
+ * liderança Gestor/Sub-encarregado). Fire-and-forget.
+ */
+export async function notifyNexusAboutGestaoStudy(input: NotifyInput): Promise<void> {
+  try {
+    // Destinatários = AppUsers ativos que passam no mesmo critério de canAccessGestao.
+    const users = await prisma.appUser.findMany({
+      where: { status: 'active' },
+      select: { nexusUserId: true, baseRole: true, roleOverride: true, cargo: true },
+    });
+    const recipientEmployeeIds = users
+      .filter((u) => canAccessGestao(effectiveRole(u.baseRole, u.roleOverride), u.cargo))
+      .map((u) => u.nexusUserId)
+      .filter((id): id is string => !!id);
+
+    const res = await pushAnnouncementToNexus({
+      authorEmployeeId: input.authorNexusUserId,
+      title: `Gestão — ${input.title}`,
+      content: excerpt(input.body),
+      type: 'consultoria-plus',
+      category: input.category,
+      recipientEmployeeIds,
+      sourceRef: input.studyId,
+    });
+
+    if (res?.id) {
+      await prisma.study.update({
+        where: { id: input.studyId },
+        data: { nexusAnnouncementId: res.id },
+      });
+    }
+  } catch (err) {
+    console.error('[notify-nexus] failed for gestao study', input.studyId, err);
   }
 }
 

@@ -12,9 +12,13 @@ const MAX_BYTES = 12 * 1024 * 1024; // 12 MB de entrada
 export async function POST(req: NextRequest) {
   const me = await requireUser();
   if (me instanceof NextResponse) return me;
-  if (!me.canConsultor) return NextResponse.json({ error: 'sem permissão' }, { status: 403 });
 
   const form = await req.formData().catch(() => null);
+  // Permissão por feed: gestão → quem tem acesso ao feed; estudos → consultor/admin.
+  const feed = form?.get('feed') === 'gestao' ? 'gestao' : 'estudos';
+  const allowed = feed === 'gestao' ? me.canGestao : me.canConsultor;
+  if (!allowed) return NextResponse.json({ error: 'sem permissão' }, { status: 403 });
+
   const file = form?.get('file');
   if (!file || typeof file === 'string') {
     return NextResponse.json({ error: 'arquivo obrigatório' }, { status: 400 });

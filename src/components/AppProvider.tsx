@@ -13,7 +13,7 @@ import { ticketSig } from '@/lib/ticketSig';
 import type { VideoInput } from './VideoForm';
 import type {
   Acting, Me, StudyCard, StudyDetailT, TicketCard, TicketDetailT,
-  ViewsPayload, AuditItemT, ReadReceiptT, TicketRefT, NotifT, VideoT,
+  ViewsPayload, AuditItemT, ReadReceiptT, TicketRefT, NotifT, VideoT, CategoryT,
 } from '@/lib/types';
 
 const PAGE_NOTIF = 20; // tamanho da página de notificações
@@ -22,6 +22,8 @@ function useAppState() {
   const router = useRouter();
   const pathname = usePathname() || '/';
   const { view, routeId } = viewFromPath(pathname);
+  // Feed corrente derivado da rota: 'gestao' nas telas de gestão, senão 'estudos'.
+  const feed: 'estudos' | 'gestao' = (view === 'gestao' || view === 'gestaoStudy' || view === 'gestaoCompose') ? 'gestao' : 'estudos';
 
   const [me, setMe] = useState<Me | null>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -79,6 +81,7 @@ function useAppState() {
 
   const [compose, setCompose] = useState({ title: '', category: '', body: '', linkInput: '', coverImage: null as string | null, links: [] as { url: string }[] });
   const [coverUploading, setCoverUploading] = useState(false);
+  const [gestaoCategories, setGestaoCategories] = useState<CategoryT[]>([]); // categorias próprias do Feed de Gestão
   const [embed, setEmbed] = useState<{ url: string; kind: string; title: string } | null>(null);
   const [catManagerOpen, setCatManagerOpen] = useState(false);
   const [editingStudyId, setEditingStudyId] = useState<string | null>(null);
@@ -111,15 +114,21 @@ function useAppState() {
     return m;
   }, []);
 
-  const loadStudies = useCallback(async (opts?: { saved?: boolean; filter?: string; search?: string; from?: string; to?: string }) => {
+  const loadStudies = useCallback(async (opts?: { saved?: boolean; filter?: string; search?: string; from?: string; to?: string; feed?: string }) => {
     const p = new URLSearchParams();
     if (opts?.saved) p.set('saved', 'true');
     if (opts?.filter && opts.filter !== 'Todos') p.set('filter', opts.filter);
     if (opts?.search) p.set('search', opts.search);
     if (opts?.from) p.set('from', opts.from);
     if (opts?.to) p.set('to', opts.to);
+    if (opts?.feed === 'gestao') p.set('feed', 'gestao');
     const d = await getJSON<{ studies: StudyCard[] }>(`/api/studies?${p}`);
     setStudies(d.studies);
+  }, []);
+
+  const loadGestaoCategories = useCallback(async () => {
+    const d = await getJSON<{ categories: CategoryT[] }>('/api/categories?feed=gestao');
+    setGestaoCategories(d.categories);
   }, []);
 
   const loadTickets = useCallback(async (status: string) => {
@@ -177,11 +186,11 @@ function useAppState() {
   // — cobre clique, deep-link e F5. Substitui o antigo restore()/openStudy/openTicket.
   useEffect(() => {
     if (!uid) return;
-    if (view === 'study' && routeId) {
+    if ((view === 'study' || view === 'gestaoStudy') && routeId) {
       setActiveStudy(null);
       getJSON<{ study: StudyDetailT }>(`/api/studies/${routeId}`)
         .then((d) => setActiveStudy(d.study))
-        .catch(() => router.replace('/feed'));
+        .catch(() => router.replace(view === 'gestaoStudy' ? '/gestao' : '/feed'));
     } else if (view === 'ticket' && routeId) {
       setActiveTicket(null); setTicketDraft(''); setEditingTicket(null); setEditRef(null); setRefQuery(''); setRefResults([]);
       getJSON<{ ticket: TicketDetailT }>(`/api/tickets/${routeId}`)
@@ -198,6 +207,8 @@ function useAppState() {
     if (view === 'videos') loadVideos(videoTab);
     else if (view === 'tickets') loadTickets(ticketFilter);
     else if (view === 'notifications' || view === 'profile') loadNotifications();
+    // Categorias do Feed de Gestão: carrega ao entrar em qualquer tela de gestão.
+    if (feed === 'gestao') loadGestaoCategories();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, uid]);
 
@@ -205,6 +216,7 @@ function useAppState() {
   useEffect(() => {
     if (!uid) return;
     if (view === 'feed') loadStudies({ filter, search, from: dateFrom, to: dateTo });
+    if (view === 'gestao') loadStudies({ feed: 'gestao', filter, search, from: dateFrom, to: dateTo });
     if (view === 'saved') loadStudies({ saved: true, from: dateFrom, to: dateTo });
   }, [filter, search, dateFrom, dateTo, view, uid, loadStudies]);
 
@@ -227,11 +239,12 @@ function useAppState() {
     };
     // Sino + contadores (sempre que estiver na app)
     timers.push(setInterval(safe(refreshMe), 10000));
-    // Feed/salvos
+    // Feed/salvos/gestão
     if (view === 'feed') timers.push(setInterval(safe(() => loadStudies({ filter, search, from: dateFrom, to: dateTo })), 20000));
+    if (view === 'gestao') timers.push(setInterval(safe(() => loadStudies({ feed: 'gestao', filter, search, from: dateFrom, to: dateTo })), 20000));
     if (view === 'saved') timers.push(setInterval(safe(() => loadStudies({ saved: true, from: dateFrom, to: dateTo })), 20000));
-    // Estudo aberto → comentários novos
-    if (view === 'study' && activeStudy?.id) {
+    // Estudo aberto (estudos ou gestão) → comentários novos
+    if ((view === 'study' || view === 'gestaoStudy') && activeStudy?.id) {
       const id = activeStudy.id;
       timers.push(setInterval(safe(async () => {
         const d = await getJSON<{ study: StudyDetailT }>(`/api/studies/${id}`);
@@ -261,22 +274,26 @@ function useAppState() {
   if (!me) return null;
 
   const isConsultor = acting === 'consultor';
-  const categories = me.categories;
+  // Categorias do feed corrente: gestão tem as próprias; estudos vêm do /api/me.
+  const categories = feed === 'gestao' ? gestaoCategories : me.categories;
   const catNames = categories.map((c) => c.name);
   const colorOf = (c: string) => categories.find((x) => x.name === c)?.color || catColor(c);
-  const firstCat = catNames[0] || 'Tributário';
+  const firstCat = catNames[0] || (feed === 'gestao' ? 'Geral' : 'Tributário');
 
   // ---- navegação (rotas reais) ----
   const resetDrafts = () => { setCommentDraft(''); setCommentIsQuestion(false); setTicketDraft(''); };
   const go = (v: typeof view) => { resetDrafts(); scrollTop(); router.push(pathForView(v)); };
   const goFeed = () => go('feed');
+  const goGestao = () => go('gestao');
   const goSaved = () => go('saved');
   const goTickets = () => go('tickets');
   const goNotifications = () => go('notifications');
   const goProfile = () => go('profile');
   const goVideos = () => go('videos');
 
-  const openStudy = (id: string) => { scrollTop(); router.push(`/estudos/${id}`); };
+  // Abre o detalhe na rota do feed correto (carrega o estudo/publicação). Aceita o
+  // feed do próprio card; por padrão usa o feed da tela atual.
+  const openStudy = (id: string, studyFeed: string = feed) => { scrollTop(); router.push(studyFeed === 'gestao' ? `/gestao/${id}` : `/estudos/${id}`); };
   const openTicket = (id: string) => { scrollTop(); router.push(`/chamados/${id}`); };
 
   // ---- ações ----
@@ -314,26 +331,28 @@ function useAppState() {
     setActiveStudy(d.study);
   };
   const publishStudy = async () => {
-    if (!compose.title.trim()) { flashMsg('Adicione um título ao estudo'); return; }
+    const isGestao = feed === 'gestao';
+    if (!compose.title.trim()) { flashMsg(isGestao ? 'Adicione um título à publicação' : 'Adicione um título ao estudo'); return; }
     const payload = {
       title: compose.title,
       category: compose.category || firstCat,
       body: compose.body,
       coverImage: compose.coverImage,
       links: compose.links,
+      feed,
     };
     if (editingStudyId) {
       await fetch(`/api/studies/${editingStudyId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-      flashMsg('Estudo atualizado');
+      flashMsg(isGestao ? 'Publicação atualizada' : 'Estudo atualizado');
     } else {
       await postJSON('/api/studies', payload);
-      flashMsg('Estudo publicado com sucesso');
+      flashMsg(isGestao ? 'Publicação enviada' : 'Estudo publicado com sucesso');
     }
     const wasEditing = editingStudyId;
     setEditingStudyId(null);
     setCompose({ title: '', category: '', body: '', linkInput: '', coverImage: null, links: [] });
-    if (wasEditing) openStudy(wasEditing);
-    else { setFilter('Todos'); setSearch(''); loadStudies({ filter: 'Todos', search: '' }); go('feed'); }
+    if (wasEditing) openStudy(wasEditing, feed);
+    else { setFilter('Todos'); setSearch(''); loadStudies({ filter: 'Todos', search: '', feed }); go(isGestao ? 'gestao' : 'feed'); }
   };
 
   const startEditStudy = (s: StudyDetailT) => {
@@ -346,13 +365,14 @@ function useAppState() {
       coverImage: s.coverImage,
       links: s.attachments.filter((a) => a.url).map((a) => ({ url: a.url as string })),
     });
-    go('compose');
+    go(s.feed === 'gestao' ? 'gestaoCompose' : 'compose');
   };
   const deleteStudy = async (id: string) => {
-    if (!confirm('Excluir este estudo? Esta ação não pode ser desfeita.')) return;
+    const isGestao = feed === 'gestao';
+    if (!confirm(isGestao ? 'Excluir esta publicação? Esta ação não pode ser desfeita.' : 'Excluir este estudo? Esta ação não pode ser desfeita.')) return;
     await fetch(`/api/studies/${id}`, { method: 'DELETE' });
-    flashMsg('Estudo excluído');
-    loadStudies({ filter, search }); go('feed');
+    flashMsg(isGestao ? 'Publicação excluída' : 'Estudo excluído');
+    loadStudies({ filter, search, feed }); go(isGestao ? 'gestao' : 'feed');
   };
 
   const saveComment = async () => {
@@ -404,6 +424,7 @@ function useAppState() {
     try {
       const fd = new FormData();
       fd.append('file', file);
+      fd.append('feed', feed);
       const res = await fetch('/api/upload', { method: 'POST', body: fd });
       if (!res.ok) throw new Error();
       const { dataUri } = await res.json();
@@ -421,18 +442,20 @@ function useAppState() {
     setCompose((c) => ({ ...c, links: [...c.links, { url: v }], linkInput: '' }));
   };
 
-  // categorias (criar/editar/excluir) — só consultor/admin
+  // categorias (criar/editar/excluir) do feed corrente. Estudos → recarrega via
+  // /api/me; gestão → recarrega a lista própria. Permissão checada no servidor.
+  const reloadCategories = async () => { if (feed === 'gestao') await loadGestaoCategories(); else await refreshMe(); };
   const createCategory = async (name: string, color: string) => {
-    const res = await fetch('/api/categories', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, color }) });
-    if (res.ok) { await refreshMe(); flashMsg('Categoria criada'); } else { flashMsg('Não foi possível criar (nome repetido?)'); }
+    const res = await fetch('/api/categories', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, color, feed }) });
+    if (res.ok) { await reloadCategories(); flashMsg('Categoria criada'); } else { flashMsg('Não foi possível criar (nome repetido?)'); }
   };
   const updateCategory = async (id: string, name: string, color: string) => {
     const res = await fetch(`/api/categories/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, color }) });
-    if (res.ok) { await refreshMe(); if (view === 'feed') loadStudies({ filter, search }); flashMsg('Categoria atualizada'); } else { flashMsg('Não foi possível salvar'); }
+    if (res.ok) { await reloadCategories(); if (view === 'feed' || view === 'gestao') loadStudies({ filter, search, feed }); flashMsg('Categoria atualizada'); } else { flashMsg('Não foi possível salvar'); }
   };
   const deleteCategory = async (id: string) => {
     const res = await fetch(`/api/categories/${id}`, { method: 'DELETE' });
-    if (res.ok) { await refreshMe(); flashMsg('Categoria excluída'); } else { const d = await res.json().catch(() => null); flashMsg(d?.inUse ? `Em uso por ${d.inUse} registro(s)` : 'Não foi possível excluir'); }
+    if (res.ok) { await reloadCategories(); flashMsg('Categoria excluída'); } else { const d = await res.json().catch(() => null); flashMsg(d?.inUse ? `Em uso por ${d.inUse} registro(s)` : 'Não foi possível excluir'); }
   };
 
   const openLink = (url: string) => {
@@ -444,7 +467,7 @@ function useAppState() {
     const editing = editingStudyId;
     setEditingStudyId(null);
     setCompose({ title: '', category: '', body: '', linkInput: '', coverImage: null, links: [] });
-    if (editing) openStudy(editing); else go('feed');
+    if (editing) openStudy(editing, feed); else go(feed === 'gestao' ? 'gestao' : 'feed');
   };
   const startNewTicket = () => {
     setNewTicket({ subject: '', category: '', body: '', referenceId: '' });
@@ -571,7 +594,12 @@ function useAppState() {
   const markAllRead = async () => { await postJSON('/api/notifications/read-all'); setNotifications((ns) => ns.map((x) => ({ ...x, read: true }))); flashMsg('Todas marcadas como lidas'); refreshMe(); };
   const logout = async () => { await postJSON('/api/logout'); window.location.href = '/login'; };
   const onPrimary = () => {
-    if (isConsultor) {
+    // No Feed de Gestão todos publicam; fora dele segue a regra do feed de estudos.
+    if (feed === 'gestao') {
+      setEditingStudyId(null);
+      setCompose({ title: '', category: '', body: '', linkInput: '', coverImage: null, links: [] });
+      go('gestaoCompose');
+    } else if (isConsultor) {
       setEditingStudyId(null);
       setCompose({ title: '', category: '', body: '', linkInput: '', coverImage: null, links: [] });
       go('compose');
@@ -595,7 +623,7 @@ function useAppState() {
 
   return {
     // navegação derivada de rota
-    view,
+    view, feed,
     // estado base + setters
     me, theme, setTheme, nav, setNav, acting, setActing,
     studies, setStudies, activeStudy, setActiveStudy, tickets, setTickets, activeTicket, setActiveTicket,
@@ -616,7 +644,7 @@ function useAppState() {
     // loaders
     refreshMe, loadStudies, loadTickets, loadHistory, loadNotifications, loadMoreNotifications, loadVideos, flashMsg,
     // handlers
-    go, goFeed, goSaved, goTickets, goNotifications, goProfile, goVideos, openStudy, openTicket,
+    go, goFeed, goGestao, goSaved, goTickets, goNotifications, goProfile, goVideos, openStudy, openTicket,
     toggleLike, openViews, toggleSave, submitComment, publishStudy, startEditStudy, deleteStudy,
     saveComment, deleteComment, saveMessage, deleteMessage, openAudit, uploadCover, addComposeLink,
     createCategory, updateCategory, deleteCategory, openLink, cancelCompose, startNewTicket,

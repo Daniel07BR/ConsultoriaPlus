@@ -14,3 +14,16 @@ export function resolveActingRole(me: CurrentUser, requested?: string): 'cliente
   if (requested === 'consultor' && me.canConsultor) return 'consultor';
   return 'cliente';
 }
+
+/**
+ * Guarda de feed: bloqueia (403) qualquer operação sobre um estudo do Feed de
+ * Gestão para quem não tem acesso. Retorna a resposta de erro, ou null se ok.
+ * Use após carregar `study.feed`:
+ *   const denied = ensureFeedAccess(me, study.feed); if (denied) return denied;
+ */
+export function ensureFeedAccess(me: CurrentUser, feed: string): NextResponse | null {
+  if (feed === 'gestao' && !me.canGestao) {
+    return NextResponse.json({ error: 'sem acesso ao feed de gestão' }, { status: 403 });
+  }
+  return null;
+}

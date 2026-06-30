@@ -7,14 +7,22 @@ import { linkKind, linkLabel } from '@/lib/present';
 import { useApp } from '../AppProvider';
 
 export function ComposeView() {
-  const { compose, firstCat, cancelCompose, editingStudyId, setCompose, coverUploading, uploadCover, setCatManagerOpen, catNames, addComposeLink, publishStudy } = useApp();
+  const { compose, feed, firstCat, cancelCompose, editingStudyId, setCompose, coverUploading, uploadCover, setCatManagerOpen, catNames, addComposeLink, publishStudy } = useApp();
   const selectedCat = compose.category || firstCat;
+  const isGestao = feed === 'gestao';
+  const heading = editingStudyId
+    ? (isGestao ? 'Editar publicação' : 'Editar estudo')
+    : (isGestao ? 'Nova publicação de gestão' : 'Publicar novo estudo');
+  const subtitle = isGestao
+    ? 'Compartilhe com a liderança. Adicione imagem de capa, vídeos do YouTube, arquivos do Drive e links.'
+    : 'Compartilhe conteúdo com os clientes. Adicione imagem de capa, vídeos do YouTube, arquivos do Drive e links.';
   return (
     <div style={{ paddingTop: 28, animation: 'cpFade .35s ease' }}>
       <button onClick={cancelCompose} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg2)', fontWeight: 700, fontSize: 13, cursor: 'pointer', marginBottom: 22 }}><IconArrowLeft size={15} sw={2.4} /> Cancelar</button>
-      <h1 className="font-grotesk" style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', margin: '0 0 4px' }}>{editingStudyId ? 'Editar estudo' : 'Publicar novo estudo'}</h1>
-      <p style={{ margin: '0 0 16px', color: 'var(--fg2)', fontSize: 15 }}>Compartilhe conteúdo com os clientes. Adicione imagem de capa, vídeos do YouTube, arquivos do Drive e links.</p>
-      {/* Atalho: pasta do Google Drive onde a consultoria mantém as matérias */}
+      <h1 className="font-grotesk" style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.02em', margin: '0 0 4px' }}>{heading}</h1>
+      <p style={{ margin: '0 0 16px', color: 'var(--fg2)', fontSize: 15 }}>{subtitle}</p>
+      {/* Atalho: pasta do Google Drive onde a consultoria mantém as matérias (só no feed de estudos) */}
+      {!isGestao && (
       <a
         href="https://drive.google.com/drive/folders/11jn6CLRjNK-Sijl87BZqhcytUWP_3-AA"
         target="_blank"
@@ -37,6 +45,7 @@ export function ComposeView() {
         </span>
         <IconExternal size={15} stroke="currentColor" sw={2.2} style={{ marginLeft: 'auto' }} />
       </a>
+      )}
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 1px 3px var(--shadow)', padding: '26px 28px', display: 'flex', flexDirection: 'column', gap: 20 }}>
         <Field label="Título"><input value={compose.title} onChange={(e) => setCompose({ ...compose, title: e.target.value })} placeholder="Ex.: Reforma tributária — o que muda em 2026" style={inputStyle(true)} /></Field>
 
