@@ -17,7 +17,7 @@ import { EmbedModal } from './modals/EmbedModal';
 export function AppShell({ children }: { children: React.ReactNode }) {
   const {
     me, theme, setTheme, nav, setNav, acting, setActing, view, feed,
-    isConsultor, unseenTicketCount, savedCount, categories, flash,
+    isConsultor, unseenTicketCount, savedCount, openQEstudos, openQGestao, categories, flash,
     catManagerOpen, setCatManagerOpen, videoFormOpen, setVideoFormOpen, editingVideo, setEditingVideo,
     createCategory, updateCategory, deleteCategory, saveVideo,
     goFeed, goGestao, goSaved, goTickets, goProfile, goVideos, onPrimary,
@@ -39,6 +39,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   });
   const roleBtn = (active: boolean): React.CSSProperties => ({ flex: 1, padding: '8px 10px', border: 'none', borderRadius: 9, fontWeight: 700, fontSize: 12.5, cursor: 'pointer', fontFamily: "'Space Grotesk',sans-serif", background: active ? 'var(--accent)' : 'transparent', color: active ? '#fff' : 'var(--fg2)', boxShadow: active ? '0 2px 8px var(--accent-soft)' : undefined });
   const ticketBadge: React.CSSProperties = { marginLeft: 'auto', background: 'var(--accent)', color: '#fff', minWidth: 20, height: 20, padding: '0 6px', borderRadius: 999, fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' };
+  // Badge âmbar de "perguntas em aberto" (coisa a responder) nos itens de feed.
+  const alertBadge: React.CSSProperties = { marginLeft: 'auto', background: '#f5a623', color: '#fff', minWidth: 20, height: 20, padding: '0 6px', borderRadius: 999, fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' };
+  const alertBadgeInline: React.CSSProperties = { ...alertBadge, marginLeft: 6 };
 
   const primaryLabel = feed === 'gestao' ? 'Publicar na Gestão' : isConsultor ? 'Publicar estudo' : 'Abrir chamado';
 
@@ -67,8 +70,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <div className="font-grotesk" style={{ fontWeight: 700, fontSize: 18, letterSpacing: '-0.02em', lineHeight: 1.1 }}>Consultoria<br /><span style={{ color: 'var(--accent)' }}>Plus</span></div>
           </div>
           <nav style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <button onClick={goFeed} style={navBtn(view === 'feed' || view === 'study', false)}><IconHome size={19} /><span>Feed de estudos</span></button>
-            {me.canGestao && <button onClick={goGestao} style={navBtn(view === 'gestao' || view === 'gestaoStudy' || view === 'gestaoCompose', false)}><IconUsers size={19} /><span>Feed de Gestão</span></button>}
+            <button onClick={goFeed} style={navBtn(view === 'feed' || view === 'study', false)}><IconHome size={19} /><span style={{ flex: 1 }}>Feed de estudos</span>{openQEstudos > 0 && <span className="cp-alert-dot" style={alertBadge} title="Perguntas em aberto">{openQEstudos}</span>}</button>
+            {me.canGestao && <button onClick={goGestao} style={navBtn(view === 'gestao' || view === 'gestaoStudy' || view === 'gestaoCompose', false)}><IconUsers size={19} /><span style={{ flex: 1 }}>Feed de Gestão</span>{openQGestao > 0 && <span className="cp-alert-dot" style={alertBadge} title="Perguntas em aberto">{openQGestao}</span>}</button>}
             <button onClick={goVideos} style={navBtn(view === 'videos', false)}><IconVideo size={19} /><span>Vídeos</span></button>
             <button onClick={goTickets} style={navBtn(view === 'tickets' || view === 'ticket', false)}><IconTicket size={19} /><span>Chamados</span>{unseenTicketCount > 0 && <span style={ticketBadge}>{unseenTicketCount}</span>}</button>
             <button onClick={goSaved} style={navBtn(view === 'saved', false)}><IconBookmark size={19} /><span style={{ flex: 1 }}>Estudos salvos</span><span style={{ fontSize: 12, color: 'var(--fg3)', fontWeight: 700 }}>{savedCount}</span></button>
@@ -106,8 +109,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <div className="font-grotesk" style={{ fontWeight: 700, fontSize: 17, letterSpacing: '-0.02em' }}>Consultoria <span style={{ color: 'var(--accent)' }}>Plus</span></div>
             </div>
             <nav style={{ display: 'flex', gap: 6 }}>
-              <button onClick={goFeed} style={navBtn(view === 'feed' || view === 'study', true)}>Feed</button>
-              {me.canGestao && <button onClick={goGestao} style={navBtn(view === 'gestao' || view === 'gestaoStudy' || view === 'gestaoCompose', true)}>Gestão</button>}
+              <button onClick={goFeed} style={navBtn(view === 'feed' || view === 'study', true)}>Feed {openQEstudos > 0 && <span className="cp-alert-dot" style={alertBadgeInline}>{openQEstudos}</span>}</button>
+              {me.canGestao && <button onClick={goGestao} style={navBtn(view === 'gestao' || view === 'gestaoStudy' || view === 'gestaoCompose', true)}>Gestão {openQGestao > 0 && <span className="cp-alert-dot" style={alertBadgeInline}>{openQGestao}</span>}</button>}
               <button onClick={goVideos} style={navBtn(view === 'videos', true)}>Vídeos</button>
               <button onClick={goTickets} style={navBtn(view === 'tickets' || view === 'ticket', true)}>Chamados {unseenTicketCount > 0 && <span style={ticketBadge}>{unseenTicketCount}</span>}</button>
               <button onClick={goSaved} style={navBtn(view === 'saved', true)}>Salvos</button>

@@ -365,8 +365,47 @@ export async function searchTickets(me: CurrentUser, q: string, excludeId?: stri
 
 // ---------- Contadores / notificações ----------
 
+/**
+ * Perguntas em ABERTO (não respondidas) nas publicações que o usuário acessa —
+ * visão AO VIVO (a partir da tabela de comentários, não das notificações), então
+ * inclui a pergunta feita pelo próprio consultor e independe de "quem foi avisado".
+ * Uma pergunta está aberta se é mais nova que a última resposta de consultor no
+ * estudo. Só interessa a quem responde (consultor/diretoria) → [] para clientes.
+ */
+export interface OpenQuestion {
+  commentId: string; studyId: string; feed: string; studyTitle: string;
+  author: { name: string; avatar: string | null }; text: string; createdAt: string;
+}
+export async function listOpenQuestions(me: CurrentUser): Promise<OpenQuestion[]> {
+  if (!me.canConsultor) return [];
+  const feeds = me.canGestao ? ['estudos', 'gestao'] : ['estudos'];
+  const questions = await prisma.comment.findMany({
+    where: { isQuestion: true, study: { feed: { in: feeds } } },
+    select: {
+      id: true, studyId: true, text: true, createdAt: true,
+      author: { select: { name: true, avatar: true } },
+      study: { select: { title: true, feed: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+  if (!questions.length) return [];
+  const studyIds = [...new Set(questions.map((q) => q.studyId))];
+  const replies = await prisma.comment.groupBy({
+    by: ['studyId'],
+    where: { studyId: { in: studyIds }, role: 'consultor' },
+    _max: { createdAt: true },
+  });
+  const lastReply = new Map(replies.map((r) => [r.studyId, r._max.createdAt?.getTime() ?? 0]));
+  return questions
+    .filter((q) => q.createdAt.getTime() > (lastReply.get(q.studyId) ?? 0))
+    .map((q) => ({
+      commentId: q.id, studyId: q.studyId, feed: q.study.feed, studyTitle: q.study.title,
+      author: { name: q.author.name, avatar: q.author.avatar }, text: q.text, createdAt: q.createdAt.toISOString(),
+    }));
+}
+
 export async function counts(me: CurrentUser) {
-  const [openTickets, saved, unread, unseenTickets] = await Promise.all([
+  const [openTickets, saved, unread, unseenTickets, openQs] = await Promise.all([
     prisma.ticket.count({ where: { ...ticketScope(me), status: { in: ['aberto', 'andamento'] } } }),
     prisma.studySave.count({ where: { userId: me.user.id } }),
     prisma.notification.count({ where: { userId: me.user.id, read: false, targetType: { in: ['study', 'gestaoStudy'] } } }),
@@ -379,8 +418,11 @@ export async function counts(me: CurrentUser) {
         messages: { some: { deletedAt: null, authorId: { not: me.user.id }, reads: { none: { userId: me.user.id } } } },
       },
     }),
+    listOpenQuestions(me),
   ]);
-  return { openTickets, unseenTickets, saved, unread };
+  const openQEstudos = openQs.filter((q) => q.feed !== 'gestao').length;
+  const openQGestao = openQs.filter((q) => q.feed === 'gestao').length;
+  return { openTickets, unseenTickets, saved, unread, openQEstudos, openQGestao };
 }
 
 export async function listNotifications(me: CurrentUser, opts: { limit?: number; offset?: number } = {}) {

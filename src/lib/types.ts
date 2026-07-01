@@ -12,7 +12,7 @@ export interface Me {
   canGestao: boolean;
   isAdmin: boolean; // admin do sistema (cargo Administrador) — pode excluir chamados
   defaultView: Acting;
-  counts: { openTickets: number; unseenTickets: number; saved: number; unread: number };
+  counts: { openTickets: number; unseenTickets: number; saved: number; unread: number; openQEstudos: number; openQGestao: number };
   categories: CategoryT[];
 }
 export interface CategoryT { id: string; name: string; color: string }
@@ -55,4 +55,5 @@ export interface TicketDetailT {
   author: { name: string; avatar: string | null; department: string | null }; messages: MessageT[];
 }
 export interface NotifT { id: string; kind: string; title: string; body: string; targetType: string | null; targetId: string | null; commentId: string | null; read: boolean; createdAt: string }
+export interface OpenQuestionT { commentId: string; studyId: string; feed: string; studyTitle: string; author: { name: string; avatar: string | null }; text: string; createdAt: string }
 export interface VideoT { id: string; title: string; description: string | null; url: string; youtubeId: string | null; thumbUrl: string | null; tab: string; source: string; courseTitle: string | null; sourceUrl: string | null; watched: boolean; author: { name: string; avatar: string | null } | null; createdAt: string }

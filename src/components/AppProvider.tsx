@@ -13,7 +13,7 @@ import { ticketSig } from '@/lib/ticketSig';
 import type { VideoInput } from './VideoForm';
 import type {
   Acting, Me, StudyCard, StudyDetailT, TicketCard, TicketDetailT,
-  ViewsPayload, AuditItemT, ReadReceiptT, TicketRefT, NotifT, VideoT, CategoryT,
+  ViewsPayload, AuditItemT, ReadReceiptT, TicketRefT, NotifT, OpenQuestionT, VideoT, CategoryT,
 } from '@/lib/types';
 
 const PAGE_NOTIF = 20; // tamanho da página de notificações
@@ -56,6 +56,7 @@ function useAppState() {
   const [activeTicket, setActiveTicket] = useState<TicketDetailT | null>(null);
   const [notifications, setNotifications] = useState<NotifT[]>([]);
   const [notifTotal, setNotifTotal] = useState(0);
+  const [openQuestions, setOpenQuestions] = useState<OpenQuestionT[]>([]);
   const [viewsModal, setViewsModal] = useState<{ studyId: string; title: string; data: ViewsPayload | null } | null>(null);
   const [auditModal, setAuditModal] = useState<{ number: number; items: AuditItemT[] | null } | null>(null);
   const [readsModal, setReadsModal] = useState<{ preview: string; items: ReadReceiptT[] } | null>(null);
@@ -174,6 +175,11 @@ function useAppState() {
     setNotifications((prev) => [...prev, ...d.notifications]);
     setNotifTotal(d.total);
   };
+  // Perguntas em aberto (ao vivo) — seção destacada no topo do inbox, só p/ consultor.
+  const loadOpenQuestions = useCallback(async () => {
+    const d = await getJSON<{ items: OpenQuestionT[] }>('/api/open-questions');
+    setOpenQuestions(d.items);
+  }, []);
 
   const loadVideos = useCallback(async (tab: string) => {
     const d = await getJSON<{ videos: VideoT[] }>(`/api/videos?tab=${tab}`);
@@ -225,7 +231,7 @@ function useAppState() {
     if (!uid) return;
     if (view === 'videos') loadVideos(videoTab);
     else if (view === 'tickets') loadTickets(ticketFilter);
-    else if (view === 'notifications' || view === 'profile') loadNotifications();
+    else if (view === 'notifications' || view === 'profile') { loadNotifications(); if (view === 'notifications') loadOpenQuestions(); }
     // Categorias do Feed de Gestão: carrega ao entrar em qualquer tela de gestão.
     if (feed === 'gestao') loadGestaoCategories();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -285,11 +291,11 @@ function useAppState() {
     }
     // Lista de notificações se está aberta
     // Atualiza a lista só quando está na 1ª página (não reseta quem clicou em "Carregar mais").
-    if (view === 'notifications') timers.push(setInterval(safe(() => { if (notifCountRef.current <= PAGE_NOTIF) loadNotifications(); }), 12000));
+    if (view === 'notifications') timers.push(setInterval(safe(() => { loadOpenQuestions(); if (notifCountRef.current <= PAGE_NOTIF) loadNotifications(); }), 12000));
     // Lista de chamados se está aberta
     if (view === 'tickets') timers.push(setInterval(safe(() => loadTickets(ticketFilter)), 15000));
     return () => { cancelled = true; timers.forEach(clearInterval); };
-  }, [uid, view, activeStudy?.id, activeTicket?.id, filter, search, dateFrom, dateTo, ticketFilter, refreshMe, loadStudies, loadNotifications, loadTickets]);
+  }, [uid, view, activeStudy?.id, activeTicket?.id, filter, search, dateFrom, dateTo, ticketFilter, refreshMe, loadStudies, loadNotifications, loadOpenQuestions, loadTickets]);
 
   if (!me) return null;
 
@@ -659,6 +665,8 @@ function useAppState() {
   const unseenTicketCount = me.counts.unseenTickets;
   const unreadCount = me.counts.unread;
   const savedCount = me.counts.saved;
+  const openQEstudos = me.counts.openQEstudos;
+  const openQGestao = me.counts.openQGestao;
 
   // "Marcar todos como vistos": zera os alertas de chamado de uma vez. Marca como
   // lidas todas as mensagens (da outra ponta) dos chamados acessíveis e recarrega
@@ -676,7 +684,7 @@ function useAppState() {
     // estado base + setters
     me, theme, setTheme, nav, setNav, acting, setActing,
     studies, setStudies, studiesTotal, activeStudy, setActiveStudy, tickets, setTickets, activeTicket, setActiveTicket,
-    notifications, setNotifications, notifTotal, setNotifTotal,
+    notifications, setNotifications, notifTotal, setNotifTotal, openQuestions,
     viewsModal, setViewsModal, auditModal, setAuditModal, readsModal, setReadsModal,
     editingTicket, setEditingTicket, editRef, setEditRef,
     filter, setFilter, search, setSearch, dateFrom, setDateFrom, dateTo, setDateTo,
@@ -689,9 +697,9 @@ function useAppState() {
     commentDraft, setCommentDraft, commentIsQuestion, setCommentIsQuestion, ticketDraft, setTicketDraft,
     commentInputRef, ticketInputRef, flash,
     // derivados
-    isConsultor, categories, catNames, colorOf, firstCat, openTicketCount, unseenTicketCount, unreadCount, savedCount,
+    isConsultor, categories, catNames, colorOf, firstCat, openTicketCount, unseenTicketCount, unreadCount, savedCount, openQEstudos, openQGestao,
     // loaders
-    refreshMe, loadStudies, loadMoreStudies, loadTickets, loadHistory, loadMoreHistory, loadNotifications, loadMoreNotifications, loadVideos, flashMsg,
+    refreshMe, loadStudies, loadMoreStudies, loadTickets, loadHistory, loadMoreHistory, loadNotifications, loadMoreNotifications, loadOpenQuestions, loadVideos, flashMsg,
     // handlers
     go, goFeed, goGestao, goSaved, goTickets, goNotifications, goProfile, goVideos, openStudy, openTicket,
     toggleLike, openViews, toggleSave, submitComment, publishStudy, startEditStudy, deleteStudy,

@@ -6,11 +6,13 @@ import { useApp } from '../AppProvider';
 import { StudyCardEl } from './StudyCardEl';
 
 export function FeedView() {
-  const { view, feed, studies, studiesTotal, loadMoreStudies, dateFrom, setDateFrom, dateTo, setDateTo, search, setSearch, catNames, filter, setFilter, colorOf, goNotifications, unreadCount } = useApp();
+  const { view, feed, studies, studiesTotal, loadMoreStudies, dateFrom, setDateFrom, dateTo, setDateTo, search, setSearch, catNames, filter, setFilter, colorOf, goNotifications, unreadCount, openQEstudos, openQGestao } = useApp();
   const isSaved = view === 'saved';
   const isGestao = feed === 'gestao';
   const list = studies;
-  const openCount = list.filter((s) => s.openQuestion).length; // perguntas em aberto (só p/ consultor)
+  const openCount = list.filter((s) => s.openQuestion).length; // perguntas em aberto na página carregada
+  const openQTotal = isGestao ? openQGestao : openQEstudos; // total (ao vivo) do feed p/ o botão
+  const alert = openQTotal > 0;
   const heading = isSaved ? 'Estudos salvos' : isGestao ? 'Feed de Gestão' : 'Feed de estudos';
   const subtitle = isSaved
     ? 'Conteúdos que você guardou para ler depois.'
@@ -52,11 +54,12 @@ export function FeedView() {
       {/* Acesso ao inbox de comentários/perguntas — mora aqui, perto das publicações.
           Ganha cor e pulso âmbar quando há novidades, pra ninguém perder. */}
       {!isSaved && (
-        <button onClick={goNotifications} title="Comentários e perguntas nas publicações" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 11, width: '100%', padding: '13px 18px', borderRadius: 14, cursor: 'pointer', marginBottom: 16, fontWeight: 700, fontSize: 14, fontFamily: "'Space Grotesk',sans-serif", border: `1px solid ${unreadCount > 0 ? '#f5a623' : 'var(--accent-soft)'}`, background: unreadCount > 0 ? 'rgba(245,166,35,0.14)' : 'var(--accent-soft)', color: unreadCount > 0 ? '#c47d10' : 'var(--accent)' }}>
-          <span className={unreadCount > 0 ? 'cp-alert-dot' : undefined} style={{ width: 9, height: 9, borderRadius: '50%', background: unreadCount > 0 ? '#f5a623' : 'var(--accent)', display: 'inline-block', flexShrink: 0 }} />
-          <IconComment size={18} stroke={unreadCount > 0 ? '#f5a623' : 'var(--accent)'} />
+        <button onClick={goNotifications} title="Comentários e perguntas nas publicações" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 11, width: '100%', padding: '13px 18px', borderRadius: 14, cursor: 'pointer', marginBottom: 16, fontWeight: 700, fontSize: 14, fontFamily: "'Space Grotesk',sans-serif", border: `1px solid ${alert ? '#f5a623' : 'var(--accent-soft)'}`, background: alert ? 'rgba(245,166,35,0.14)' : 'var(--accent-soft)', color: alert ? '#c47d10' : 'var(--accent)' }}>
+          <span className={alert ? 'cp-alert-dot' : undefined} style={{ width: 9, height: 9, borderRadius: '50%', background: alert ? '#f5a623' : 'var(--accent)', display: 'inline-block', flexShrink: 0 }} />
+          <IconComment size={18} stroke={alert ? '#f5a623' : 'var(--accent)'} />
           <span style={{ flex: 1, textAlign: 'left' }}>Comentários e perguntas</span>
-          {unreadCount > 0 && <span style={{ background: '#f5a623', color: '#fff', minWidth: 20, height: 20, padding: '0 8px', borderRadius: 999, fontSize: 11.5, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{unreadCount} {unreadCount === 1 ? 'nova' : 'novas'}</span>}
+          {alert && <span style={{ background: '#f5a623', color: '#fff', minWidth: 20, height: 20, padding: '0 9px', borderRadius: 999, fontSize: 11.5, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{openQTotal} em aberto</span>}
+          {unreadCount > 0 && <span style={{ background: 'var(--accent)', color: '#fff', minWidth: 20, height: 20, padding: '0 8px', borderRadius: 999, fontSize: 11.5, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{unreadCount} {unreadCount === 1 ? 'nova' : 'novas'}</span>}
         </button>
       )}
 

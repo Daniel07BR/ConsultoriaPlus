@@ -15,7 +15,7 @@ function kindStyle(kind: string) {
 }
 
 export function NotificationsView() {
-  const { unreadCount, markAllRead, notifications, openNotif, notifTotal, loadMoreNotifications } = useApp();
+  const { unreadCount, markAllRead, notifications, openNotif, notifTotal, loadMoreNotifications, openQuestions, openStudy } = useApp();
   return (
     <div style={{ paddingTop: 32, animation: 'cpFade .35s ease' }}>
       <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, marginBottom: 6 }}>
@@ -23,6 +23,34 @@ export function NotificationsView() {
         {unreadCount > 0 && <button onClick={markAllRead} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 15px', borderRadius: 11, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg2)', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap' }}><IconCheck size={15} sw={2.2} /> Marcar todas como lidas</button>}
       </div>
       <p style={{ margin: '0 0 22px', color: 'var(--fg2)', fontSize: 15 }}>Comentários e perguntas nas publicações. Clique para abrir a publicação no ponto exato e responder.</p>
+
+      {/* Perguntas em aberto (ao vivo): o que ainda precisa de resposta, em destaque
+          âmbar, no topo — independe de "quem foi avisado". Só aparece p/ consultor. */}
+      {openQuestions.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 11 }}>
+            <span className="cp-alert-dot" style={{ width: 9, height: 9, borderRadius: '50%', background: '#f5a623' }} />
+            <span style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: '#c47d10' }}>Perguntas em aberto · {openQuestions.length}</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+            {openQuestions.map((q) => (
+              <button key={q.commentId} onClick={() => openStudy(q.studyId, q.feed, q.commentId)} style={{ textAlign: 'left', color: 'var(--fg)', display: 'flex', alignItems: 'flex-start', gap: 14, background: 'rgba(245,166,35,0.10)', border: '1px solid #f5a623', borderRadius: 16, padding: '16px 18px', cursor: 'pointer', boxShadow: '0 0 0 1px rgba(245,166,35,0.35)' }}>
+                <div style={{ width: 42, height: 42, borderRadius: 12, background: 'rgba(245,166,35,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><span className="cp-alert-pulse" style={{ display: 'inline-flex' }}><IconQuestion size={20} stroke="#e0902a" sw={2.2} /></span></div>
+                <div style={{ flex: 1, minWidth: 0, paddingTop: 1 }}>
+                  <div style={{ marginBottom: 3 }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 9px', borderRadius: 999, background: 'rgba(245,166,35,0.18)', color: '#c47d10', fontSize: 10.5, fontWeight: 700, letterSpacing: '.03em' }}>Pergunta em aberto</span></div>
+                  <div style={{ fontSize: 14.5, lineHeight: 1.5 }}><span style={{ fontWeight: 700 }}>{q.author.name}</span> <span style={{ color: 'var(--fg2)' }}>perguntou em “{q.studyTitle}”.</span></div>
+                  <div style={{ fontSize: 13.5, color: 'var(--fg2)', marginTop: 4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{q.text}</div>
+                  <div style={{ fontSize: 12.5, color: 'var(--fg3)', marginTop: 4 }}>{timeAgo(q.createdAt)}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {notifications.length > 0 && openQuestions.length > 0 && (
+        <div style={{ fontSize: 12.5, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--fg3)', margin: '0 0 11px' }}>Histórico</div>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
         {notifications.map((n) => {
           const k = kindStyle(n.kind);
@@ -40,7 +68,7 @@ export function NotificationsView() {
             </button>
           );
         })}
-        {notifications.length === 0 && <div style={{ textAlign: 'center', padding: '50px 20px', color: 'var(--fg3)', fontSize: 14 }}>Nenhum comentário ou pergunta por enquanto.</div>}
+        {notifications.length === 0 && openQuestions.length === 0 && <div style={{ textAlign: 'center', padding: '50px 20px', color: 'var(--fg3)', fontSize: 14 }}>Nenhum comentário ou pergunta por enquanto.</div>}
       </div>
       {notifications.length < notifTotal && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginTop: 18 }}>
