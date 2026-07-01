@@ -10,6 +10,7 @@ export function FeedView() {
   const isSaved = view === 'saved';
   const isGestao = feed === 'gestao';
   const list = studies;
+  const openCount = list.filter((s) => s.openQuestion).length; // perguntas em aberto (só p/ consultor)
   const heading = isSaved ? 'Estudos salvos' : isGestao ? 'Feed de Gestão' : 'Feed de estudos';
   const subtitle = isSaved
     ? 'Conteúdos que você guardou para ler depois.'
@@ -18,16 +19,7 @@ export function FeedView() {
       : 'Conteúdos da equipe de consultoria. Curta, comente e tire suas dúvidas.';
   return (
     <div style={{ paddingTop: 32, animation: 'cpFade .35s ease' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, margin: '0 0 4px' }}>
-        <h1 className="font-grotesk" style={{ fontSize: 30, fontWeight: 700, letterSpacing: '-0.02em', margin: 0 }}>{heading}</h1>
-        {/* Acesso ao inbox de comentários/perguntas — mora aqui, no feed, não no menu. */}
-        {!isSaved && (
-          <button onClick={goNotifications} title="Comentários e perguntas nas publicações" style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg2)', fontWeight: 700, fontSize: 13.5, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
-            <IconComment size={17} /> Comentários
-            {unreadCount > 0 && <span style={{ marginLeft: 2, background: 'var(--accent)', color: '#fff', minWidth: 19, height: 19, padding: '0 5px', borderRadius: 999, fontSize: 10.5, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{unreadCount}</span>}
-          </button>
-        )}
-      </div>
+      <h1 className="font-grotesk" style={{ fontSize: 30, fontWeight: 700, letterSpacing: '-0.02em', margin: '0 0 4px' }}>{heading}</h1>
       <p style={{ margin: '0 0 18px', color: 'var(--fg2)', fontSize: 15 }}>{subtitle}</p>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
@@ -55,6 +47,24 @@ export function FeedView() {
             })}
           </div>
         </>
+      )}
+
+      {/* Acesso ao inbox de comentários/perguntas — mora aqui, perto das publicações.
+          Ganha cor e pulso âmbar quando há novidades, pra ninguém perder. */}
+      {!isSaved && (
+        <button onClick={goNotifications} title="Comentários e perguntas nas publicações" style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 11, width: '100%', padding: '13px 18px', borderRadius: 14, cursor: 'pointer', marginBottom: 16, fontWeight: 700, fontSize: 14, fontFamily: "'Space Grotesk',sans-serif", border: `1px solid ${unreadCount > 0 ? '#f5a623' : 'var(--accent-soft)'}`, background: unreadCount > 0 ? 'rgba(245,166,35,0.14)' : 'var(--accent-soft)', color: unreadCount > 0 ? '#c47d10' : 'var(--accent)' }}>
+          <span className={unreadCount > 0 ? 'cp-alert-dot' : undefined} style={{ width: 9, height: 9, borderRadius: '50%', background: unreadCount > 0 ? '#f5a623' : 'var(--accent)', display: 'inline-block', flexShrink: 0 }} />
+          <IconComment size={18} stroke={unreadCount > 0 ? '#f5a623' : 'var(--accent)'} />
+          <span style={{ flex: 1, textAlign: 'left' }}>Comentários e perguntas</span>
+          {unreadCount > 0 && <span style={{ background: '#f5a623', color: '#fff', minWidth: 20, height: 20, padding: '0 8px', borderRadius: 999, fontSize: 11.5, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{unreadCount} {unreadCount === 1 ? 'nova' : 'novas'}</span>}
+        </button>
+      )}
+
+      {openCount > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '11px 16px', borderRadius: 12, background: 'rgba(245,166,35,0.12)', border: '1px solid rgba(245,166,35,0.45)', marginBottom: 16, color: '#c47d10', fontWeight: 700, fontSize: 13.5 }}>
+          <span className="cp-alert-dot" style={{ width: 9, height: 9, borderRadius: '50%', background: '#f5a623', flexShrink: 0 }} />
+          {openCount === 1 ? '1 publicação com pergunta em aberto aparece primeiro — responda.' : `${openCount} publicações com perguntas em aberto aparecem primeiro — responda.`}
+        </div>
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>

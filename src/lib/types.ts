@@ -21,7 +21,7 @@ export interface StudyCard {
   id: string; feed: string; title: string; category: string; excerpt: string; coverImage: string | null; readTime: string | null; createdAt: string;
   author: { name: string; title: string | null; avatar: string | null; department: string | null };
   likes: number; liked: boolean; saved: boolean; commentCount: number; attachments: Attachment[];
-  views: number; viewed: boolean;
+  views: number; viewed: boolean; openQuestion: boolean;
 }
 export interface ViewsPayload {
   total: number;

@@ -59,7 +59,7 @@ export async function listStudies(
     }),
   ]);
 
-  const studies = rows.map((s) => ({
+  let studies = rows.map((s) => ({
     id: s.id,
     feed: s.feed,
     title: s.title,
@@ -75,8 +75,29 @@ export async function listStudies(
     commentCount: s._count.comments,
     views: s._count.views,
     viewed: s.views.length > 0,
+    openQuestion: false,
     attachments: s.attachments.map((a) => ({ kind: a.kind, name: a.name, meta: a.meta, url: a.url })),
   }));
+
+  // Pergunta em aberto = existe pergunta cuja última é mais nova que a última
+  // resposta de consultor (ou sem resposta). Só interessa a quem responde
+  // (consultor/diretoria); marca o card e o sobe para o topo do feed.
+  if (me.canConsultor && studies.length) {
+    const ids = studies.map((s) => s.id);
+    const [qMax, rMax] = await Promise.all([
+      prisma.comment.groupBy({ by: ['studyId'], where: { studyId: { in: ids }, isQuestion: true }, _max: { createdAt: true } }),
+      prisma.comment.groupBy({ by: ['studyId'], where: { studyId: { in: ids }, role: 'consultor' }, _max: { createdAt: true } }),
+    ]);
+    const lastQ = new Map(qMax.map((g) => [g.studyId, g._max.createdAt?.getTime() ?? 0]));
+    const lastR = new Map(rMax.map((g) => [g.studyId, g._max.createdAt?.getTime() ?? 0]));
+    studies = studies.map((s) => {
+      const q = lastQ.get(s.id) ?? 0;
+      const r = lastR.get(s.id) ?? 0;
+      return { ...s, openQuestion: q > 0 && q > r };
+    });
+    // Perguntas em aberto primeiro; mantém a ordem por data dentro de cada grupo.
+    studies = [...studies.filter((s) => s.openQuestion), ...studies.filter((s) => !s.openQuestion)];
+  }
   return { studies, total };
 }
 

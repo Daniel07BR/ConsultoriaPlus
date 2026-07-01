@@ -12,11 +12,20 @@ export function StudyCardEl({ s }: { s: StudyCard }) {
   const { openStudy, colorOf, openLink, toggleLike, openViews, toggleSave } = useApp();
   // Realce colorido na borda pela cor do autor (mesma dos chamados: Marina rosé,
   // Edilaine teal). Só no feed de estudos — o feed de gestão mantém o tema índigo.
+  const openQ = s.openQuestion; // tem pergunta não respondida → destaque âmbar
   const ac = s.feed === 'estudos' ? consultorColor(s.author.name) : null;
-  const border = ac ? `1px solid ${ac}66` : '1px solid var(--border)';
-  const boxShadow = ac ? `0 0 0 1px ${ac}66, 0 6px 20px ${ac}33` : '0 1px 3px var(--shadow)';
+  const border = openQ ? '1px solid #f5a623' : (ac ? `1px solid ${ac}66` : '1px solid var(--border)');
+  const boxShadow = openQ
+    ? '0 0 0 2px rgba(245,166,35,0.55), 0 8px 26px rgba(245,166,35,0.28)'
+    : (ac ? `0 0 0 1px ${ac}66, 0 6px 20px ${ac}33` : '0 1px 3px var(--shadow)');
   return (
     <article style={{ background: 'var(--surface)', border, borderRadius: 20, boxShadow, padding: '22px 24px' }}>
+      {openQ && (
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 14, padding: '7px 13px', borderRadius: 999, background: 'rgba(245,166,35,0.16)', color: '#c47d10', fontWeight: 700, fontSize: 12.5 }}>
+          <span className="cp-alert-dot" style={{ width: 8, height: 8, borderRadius: '50%', background: '#f5a623', display: 'inline-block' }} />
+          Pergunta em aberto — responda
+        </div>
+      )}
       {s.coverImage && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={s.coverImage} alt="" onClick={() => openStudy(s.id, s.feed)} style={{ width: '100%', maxHeight: 220, objectFit: 'cover', borderRadius: 14, marginBottom: 16, display: 'block', cursor: 'pointer' }} />
@@ -50,8 +59,8 @@ export function StudyCardEl({ s }: { s: StudyCard }) {
         <button onClick={() => openViews(s.id, s.title)} title="Marcar como visualizado e ver quem viu" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 12px', borderRadius: 10, border: 'none', background: 'transparent', cursor: 'pointer', fontWeight: 700, fontSize: 13.5, color: s.viewed ? 'var(--accent)' : 'var(--fg2)' }}>
           <IconThumbsUp size={18} fill={s.viewed ? 'var(--accent)' : 'none'} stroke={s.viewed ? 'var(--accent)' : 'currentColor'} />{s.views}
         </button>
-        <button onClick={() => openStudy(s.id, s.feed)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 12px', borderRadius: 10, border: 'none', background: 'transparent', cursor: 'pointer', fontWeight: 700, fontSize: 13.5, color: 'var(--fg2)' }}>
-          <IconComment size={18} />{s.commentCount}
+        <button onClick={() => openStudy(s.id, s.feed)} title={openQ ? 'Tem pergunta em aberto — clique para responder' : undefined} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 12px', borderRadius: 10, border: 'none', background: openQ ? 'rgba(245,166,35,0.16)' : 'transparent', cursor: 'pointer', fontWeight: 700, fontSize: 13.5, color: openQ ? '#c47d10' : 'var(--fg2)' }}>
+          <span className={openQ ? 'cp-alert-pulse' : undefined} style={{ display: 'inline-flex' }}><IconComment size={18} stroke={openQ ? '#f5a623' : 'currentColor'} /></span>{s.commentCount}
         </button>
         <div style={{ flex: 1 }} />
         <button onClick={() => toggleSave(s.id)} title="Salvar" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 10, border: 'none', background: 'transparent', cursor: 'pointer', fontWeight: 700, fontSize: 13, color: s.saved ? 'var(--accent)' : 'var(--fg2)' }}>

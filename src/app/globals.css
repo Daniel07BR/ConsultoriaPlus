@@ -98,8 +98,40 @@ textarea {
 .cp-live-dot {
   animation: cpLiveRing 1.8s ease-out infinite;
 }
+/* Alerta âmbar (perguntas/comentários novos e perguntas em aberto). */
+@keyframes cpAlertRing {
+  0% {
+    box-shadow: 0 0 0 0 rgba(245, 166, 35, 0.55);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(245, 166, 35, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 166, 35, 0);
+  }
+}
+.cp-alert-dot {
+  animation: cpAlertRing 1.7s ease-out infinite;
+}
+@keyframes cpAlertPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.18);
+    opacity: 0.72;
+  }
+}
+.cp-alert-pulse {
+  animation: cpAlertPulse 1.3s ease-in-out infinite;
+  transform-origin: center;
+}
 @media (prefers-reduced-motion: reduce) {
-  .cp-live-dot {
+  .cp-live-dot,
+  .cp-alert-dot,
+  .cp-alert-pulse {
     animation: none;
   }
 }
