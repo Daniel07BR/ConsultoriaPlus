@@ -80,12 +80,14 @@ export async function notifyNexusAboutGestaoStudy(input: NotifyInput): Promise<v
 
     const res = await pushAnnouncementToNexus({
       authorEmployeeId: input.authorNexusUserId,
-      title: `Gestão — ${input.title}`,
+      title: input.title,
       content: excerpt(input.body),
-      type: 'consultoria-plus',
+      // Tipo próprio do Feed de Gestão: o Nexus usa isso p/ dar identidade visual
+      // própria (cor índigo + tag "Gestão" + avatar de perfil do autor no círculo),
+      // distinta do feed comum (cor da consultora + apresentadora). Sem imageUrl:
+      // o Nexus usa a foto de perfil do autor (employees.avatar) como avatar.
+      type: 'consultoria-gestao',
       category: input.category,
-      // Sem capa: o comunicado usa a foto de perfil do próprio autor como imagem.
-      imageUrl: input.authorAvatar || undefined,
       recipientEmployeeIds,
       sourceRef: input.studyId,
     });
