@@ -10,6 +10,7 @@ export interface Me {
   canConsultor: boolean;
   canSwitch: boolean;
   canGestao: boolean;
+  isAdmin: boolean; // admin do sistema (cargo Administrador) — pode excluir chamados
   defaultView: Acting;
   counts: { openTickets: number; unseenTickets: number; saved: number; unread: number };
   categories: CategoryT[];

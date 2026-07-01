@@ -87,3 +87,25 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   }
   return NextResponse.json({ ok: true });
 }
+
+// Excluir o chamado por completo. SÓ admin do sistema (cargo Administrador).
+// Remoção permanente: mensagens + recibos de leitura caem em cascata; a auditoria
+// de nível de chamado (revisions com messageId nulo) e as notificações apontam por
+// campo solto (sem FK), então são limpas explicitamente na mesma transação.
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const me = await requireUser();
+  if (me instanceof NextResponse) return me;
+  if (!me.isAdmin) return NextResponse.json({ error: 'sem permissão' }, { status: 403 });
+  const { id } = await params;
+
+  const t = await prisma.ticket.findUnique({ where: { id }, select: { id: true } });
+  if (!t) return NextResponse.json({ error: 'não encontrado' }, { status: 404 });
+
+  await prisma.$transaction([
+    prisma.ticketMessageRevision.deleteMany({ where: { ticketId: id } }),
+    prisma.notification.deleteMany({ where: { targetType: 'ticket', targetId: id } }),
+    prisma.ticket.delete({ where: { id } }), // mensagens + reads em cascata
+  ]);
+
+  return NextResponse.json({ ok: true });
+}

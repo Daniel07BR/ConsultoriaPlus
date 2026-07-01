@@ -538,6 +538,19 @@ function useAppState() {
     setActiveTicket(d.ticket);
     if (view === 'tickets') loadTickets(ticketFilter);
   };
+  // Excluir chamado por completo (só admin). Pede confirmação; remove do estado local.
+  const deleteTicket = async (id: string, number: number, subject: string) => {
+    if (!me.isAdmin) return;
+    if (!window.confirm(`Excluir o chamado #${number} "${subject}"?\n\nA ação é permanente e remove as mensagens, notificações e o histórico deste chamado.`)) return;
+    const res = await fetch(`/api/tickets/${id}`, { method: 'DELETE' });
+    if (!res.ok) { flashMsg('Não foi possível excluir o chamado'); return; }
+    flashMsg(`Chamado #${number} excluído`);
+    setTickets((cur) => cur.filter((x) => x.id !== id));
+    setHistoryTickets((cur) => cur.filter((x) => x.id !== id));
+    if (activeTicket?.id === id) goTickets(); // estava aberto → volta à lista
+    else if (view === 'tickets') loadTickets(ticketFilter);
+    refreshMe();
+  };
   const submitTicket = async () => {
     if (!newTicket.subject.trim()) { flashMsg('Informe o assunto do chamado'); return; }
     const r = await postJSON<{ id: string }>('/api/tickets', { ...newTicket, category: newTicket.category || firstCat });
@@ -678,7 +691,7 @@ function useAppState() {
     saveComment, deleteComment, saveMessage, deleteMessage, openAudit, uploadCover, addComposeLink,
     createCategory, updateCategory, deleteCategory, openLink, cancelCompose, startNewTicket,
     searchRefTickets, selectRefTicket, startEditTicket, cancelEditTicket, pickEditRef, saveTicketEdit,
-    submitTicket, sendTicketReply, closeTicket, assumirTicket, saveVideo, deleteVideo, playVideo, toggleWatched,
+    submitTicket, sendTicketReply, closeTicket, assumirTicket, deleteTicket, saveVideo, deleteVideo, playVideo, toggleWatched,
     reclassifyVideo, syncVideos, openNotif, markAllRead, markAllTicketsSeen, logout, onPrimary,
   };
 }

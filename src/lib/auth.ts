@@ -2,7 +2,7 @@
 import 'server-only';
 import { prisma } from './db';
 import { readSession } from './session';
-import { effectiveRole, canActAsConsultor, canSwitchView, canAccessGestao, defaultView, type AppRole, type ActingRole } from './roles';
+import { effectiveRole, canActAsConsultor, canSwitchView, canAccessGestao, isSystemAdmin, defaultView, type AppRole, type ActingRole } from './roles';
 import type { AppUser } from '@prisma/client';
 
 export interface CurrentUser {
@@ -11,6 +11,7 @@ export interface CurrentUser {
   canConsultor: boolean; // pode responder/publicar
   canSwitch: boolean; // pode alternar visão (Diretoria)
   canGestao: boolean; // tem acesso ao Feed de Gestão
+  isAdmin: boolean; // admin do sistema (cargo Administrador) — poderes destrutivos
   defaultView: ActingRole;
 }
 
@@ -27,6 +28,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     canConsultor: canActAsConsultor(role),
     canSwitch: canSwitchView(role),
     canGestao: canAccessGestao(role, user.cargo),
+    isAdmin: isSystemAdmin(user.cargo),
     defaultView: defaultView(role),
   };
 }

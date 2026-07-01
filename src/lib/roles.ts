@@ -47,6 +47,16 @@ export function canActAsConsultor(role: AppRole): boolean {
 }
 
 /**
+ * Admin do sistema (cargo em ADMIN_CARGOS, ex.: Administrador — TI). Distinto da
+ * Diretoria: ambos são papel 'both', mas só o admin tem poderes destrutivos como
+ * excluir qualquer chamado. NÃO derive isso de 'both' (Diretoria também é 'both').
+ */
+export function isSystemAdmin(cargo?: string | null): boolean {
+  const c = (cargo ?? '').trim().toLowerCase();
+  return !!c && ADMIN_CARGOS.includes(c);
+}
+
+/**
  * Acesso ao Feed de Gestão: consultoria/diretoria/admin (papel consultor|both)
  * OU cargo de liderança (Gestor, Sub-encarregado). Os demais não veem o feed.
  */

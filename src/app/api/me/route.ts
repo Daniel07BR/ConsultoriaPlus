@@ -27,6 +27,7 @@ export async function GET() {
     canConsultor: me.canConsultor,
     canSwitch: me.canSwitch,
     canGestao: me.canGestao,
+    isAdmin: me.isAdmin,
     defaultView: me.defaultView,
     counts: c,
     categories,

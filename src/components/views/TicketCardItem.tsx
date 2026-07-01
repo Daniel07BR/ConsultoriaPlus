@@ -2,14 +2,14 @@
 // Card de chamado nas listas (fila/meus/histórico). Era `tCard` em AppClient (Fase 2).
 import Avatar from '../Avatar';
 import { Hearts } from '../ui/Hearts';
-import { IconComment, IconArrowRight } from '../icons';
+import { IconComment, IconArrowRight, IconX } from '../icons';
 import { ticketNumChip } from '../ui/formKit';
 import { statusMeta, timeAgo, consultorColor } from '@/lib/present';
 import { useApp } from '../AppProvider';
 import type { TicketCard } from '@/lib/types';
 
 export function TicketCardItem({ t }: { t: TicketCard }) {
-  const { openTicket, colorOf } = useApp();
+  const { openTicket, colorOf, me, deleteTicket } = useApp();
   const sm = statusMeta(t.status);
   const hasUnseen = t.unseen > 0;
   // Chamado NOVO (aberto e ainda não visto): destaque em verde, distinto do
@@ -55,6 +55,15 @@ export function TicketCardItem({ t }: { t: TicketCard }) {
           )}
           <span style={ticketNumChip} title={`Chamado nº ${t.number}`}>#{t.number}</span>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '6px 12px', borderRadius: 999, background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 12, fontWeight: 700, color: 'var(--fg2)' }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: colorOf(t.category) }} />{t.category}</span>
+          {/* Excluir (só admin): o card é um <button>, então isto é um <span role=button> com stopPropagation p/ não abrir o chamado. */}
+          {me.isAdmin && (
+            <span role="button" tabIndex={0} title="Excluir este chamado (admin)"
+              onClick={(e) => { e.stopPropagation(); e.preventDefault(); deleteTicket(t.id, t.number, t.subject); }}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); e.preventDefault(); deleteTicket(t.id, t.number, t.subject); } }}
+              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 30, height: 30, borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface2)', color: '#e0457a', cursor: 'pointer', flexShrink: 0 }}>
+              <IconX size={15} sw={2.4} />
+            </span>
+          )}
         </div>
       </div>
       <div className="font-grotesk" style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.015em', lineHeight: 1.25, margin: '0 0 8px' }}>{t.subject}</div>
