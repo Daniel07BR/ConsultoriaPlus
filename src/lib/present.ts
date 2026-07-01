@@ -77,6 +77,24 @@ export function avatarGradient(role: string): string {
     : 'linear-gradient(135deg,#8a7d83,#bcaeb4)';
 }
 
+// ---------- Cor por consultor (identifica quem está respondendo) ----------
+// Consultores conhecidos têm cor fixa (Marina rosé — combina com o tema; Edilaine
+// teal esverdeado — distinto e harmônico). Novos consultores recebem uma cor
+// determinística da paleta (estável por nome). Basta adicionar aqui p/ fixar outra.
+const CONSULTOR_COLORS: Record<string, string> = {
+  marina: '#ff5c89',
+  edilaine: '#12b3a6',
+};
+const CONSULTOR_PALETTE = ['#ff5c89', '#12b3a6', '#7c3aed', '#f59e0b', '#4f46e5', '#e0457a', '#3f9e74', '#06b6d4'];
+
+export function consultorColor(name: string): string {
+  const first = (name || '').trim().split(/\s+/)[0].toLowerCase();
+  if (CONSULTOR_COLORS[first]) return CONSULTOR_COLORS[first];
+  let h = 0;
+  for (let i = 0; i < first.length; i++) h = (h * 31 + first.charCodeAt(i)) >>> 0;
+  return CONSULTOR_PALETTE[h % CONSULTOR_PALETTE.length];
+}
+
 // ---------- Links (YouTube / Google Drive / site) ----------
 
 export type LinkKind = 'video' | 'drive' | 'link';

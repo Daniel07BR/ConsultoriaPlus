@@ -83,6 +83,26 @@ textarea {
     transform: scale(1) translateY(0);
   }
 }
+/* Bolinha "Ao Vivo": anel pulsante + leve respiração do núcleo. */
+@keyframes cpLiveRing {
+  0% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 9px rgba(239, 68, 68, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+.cp-live-dot {
+  animation: cpLiveRing 1.8s ease-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cp-live-dot {
+    animation: none;
+  }
+}
 
 .font-grotesk {
   font-family: var(--font-grotesk), 'Space Grotesk', sans-serif;

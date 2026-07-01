@@ -49,7 +49,7 @@ export function TicketsView() {
           {/* Cabeçalho "Ao Vivo" — reúne aberto + em andamento; carrega o mesmo número do menu. */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-              <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 0 4px rgba(239,68,68,0.18)' }} />
+              <span className="cp-live-dot" style={{ width: 9, height: 9, borderRadius: '50%', background: '#ef4444' }} />
               <span className="font-grotesk" style={{ fontSize: 20, fontWeight: 700, letterSpacing: '-0.01em' }}>Ao Vivo</span>
               {unseenTicketCount > 0 && (
                 <span title={`${unseenTicketCount} sem visualização`} style={{ minWidth: 22, height: 22, padding: '0 7px', borderRadius: 999, background: 'var(--accent)', color: '#fff', fontSize: 12, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px var(--accent-soft)' }}>{unseenTicketCount}</span>

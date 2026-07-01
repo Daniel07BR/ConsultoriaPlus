@@ -31,7 +31,9 @@ export interface CommentT { id: string; author: { name: string; avatar: string |
 export interface StudyDetailT extends Omit<StudyCard, 'excerpt'> { mine: boolean; body: string[]; comments: CommentT[] }
 export interface TicketCard {
   id: string; number: number; subject: string; category: string; status: string; rating: number | null; ratingLabel: string | null; createdAt: string;
-  author: { name: string; avatar: string | null; department: string | null }; msgCount: number; lastPreview: string; unseen: number;
+  author: { name: string; avatar: string | null; department: string | null };
+  responder: { name: string; avatar: string | null } | null; // consultor que está respondendo
+  msgCount: number; lastPreview: string; unseen: number;
 }
 export interface ReadReceiptT { name: string; avatar: string | null; role: string; readAt: string }
 export interface MessageT {
