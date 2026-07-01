@@ -12,8 +12,13 @@ export function TicketCardItem({ t }: { t: TicketCard }) {
   const { openTicket, colorOf } = useApp();
   const sm = statusMeta(t.status);
   const hasUnseen = t.unseen > 0;
+  // Chamado NOVO (aberto e ainda não visto): destaque em verde, distinto do
+  // "N novas" (accent) de um chamado em andamento. Some quando o consultor entra.
+  const isNew = t.status === 'aberto' && hasUnseen;
+  const hi = isNew ? '#16a34a' : 'var(--accent)';
+  const hiSoft = isNew ? 'rgba(22,163,74,0.20)' : 'var(--accent-soft)';
   return (
-    <button onClick={() => openTicket(t.id)} style={{ textAlign: 'left', color: 'var(--fg)', background: 'var(--surface)', border: `1px solid ${hasUnseen ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 20, boxShadow: hasUnseen ? '0 0 0 1px var(--accent), 0 4px 14px var(--accent-soft)' : '0 1px 3px var(--shadow)', padding: '22px 24px', cursor: 'pointer' }}>
+    <button onClick={() => openTicket(t.id)} style={{ textAlign: 'left', color: 'var(--fg)', background: 'var(--surface)', border: `1px solid ${hasUnseen ? hi : 'var(--border)'}`, borderRadius: 20, boxShadow: hasUnseen ? `0 0 0 1px ${hi}, 0 4px 14px ${hiSoft}` : '0 1px 3px var(--shadow)', padding: '22px 24px', cursor: 'pointer' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
         <Avatar name={t.author.name} avatar={t.author.avatar} size={44} role="cliente" />
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -26,8 +31,8 @@ export function TicketCardItem({ t }: { t: TicketCard }) {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {hasUnseen && (
-            <span title={`${t.unseen} ${t.unseen === 1 ? 'atualização não vista' : 'atualizações não vistas'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 999, background: 'var(--accent)', color: '#fff', fontSize: 11.5, fontWeight: 700, whiteSpace: 'nowrap', boxShadow: '0 2px 8px var(--accent-soft)' }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} />{t.unseen} {t.unseen === 1 ? 'nova' : 'novas'}
+            <span title={isNew ? 'Chamado novo — ainda não aberto' : `${t.unseen} ${t.unseen === 1 ? 'atualização não vista' : 'atualizações não vistas'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 11px', borderRadius: 999, background: hi, color: '#fff', fontSize: 11.5, fontWeight: 700, whiteSpace: 'nowrap', boxShadow: `0 2px 8px ${hiSoft}` }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff' }} />{isNew ? 'Novo' : `${t.unseen} ${t.unseen === 1 ? 'nova' : 'novas'}`}
             </span>
           )}
           <span style={ticketNumChip} title={`Chamado nº ${t.number}`}>#{t.number}</span>

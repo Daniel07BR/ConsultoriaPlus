@@ -14,6 +14,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (!study) return NextResponse.json({ error: 'não encontrado' }, { status: 404 });
   const denied = ensureFeedAccess(me, study.feed);
   if (denied) return denied;
+  // Abrir o estudo baixa as notificações pendentes dele (auto-visto).
+  await prisma.notification.updateMany({
+    where: { userId: me.user.id, targetType: 'study', targetId: id, read: false },
+    data: { read: true },
+  });
   return NextResponse.json({ study });
 }
 

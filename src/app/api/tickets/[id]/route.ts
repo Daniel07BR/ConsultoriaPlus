@@ -11,6 +11,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params;
   const ticket = await getTicket(me, id);
   if (!ticket) return NextResponse.json({ error: 'não encontrado' }, { status: 404 });
+  // Abrir o chamado baixa as notificações pendentes dele (auto-visto).
+  await prisma.notification.updateMany({
+    where: { userId: me.user.id, targetType: 'ticket', targetId: id, read: false },
+    data: { read: true },
+  });
   return NextResponse.json({ ticket });
 }
 

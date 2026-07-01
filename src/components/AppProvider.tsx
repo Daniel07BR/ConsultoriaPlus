@@ -170,9 +170,6 @@ function useAppState() {
     (async () => {
       const m = await refreshMe();
       setActing(m.defaultView);
-      // Consultor abre os chamados já no filtro "Aberto" (sua fila de trabalho);
-      // cliente segue em "Todos". Só o padrão inicial — depois pode trocar.
-      if (m.defaultView === 'consultor') setTicketFilter('aberto');
     })();
   }, [refreshMe]);
 
@@ -189,12 +186,16 @@ function useAppState() {
     if ((view === 'study' || view === 'gestaoStudy') && routeId) {
       setActiveStudy(null);
       getJSON<{ study: StudyDetailT }>(`/api/studies/${routeId}`)
-        .then((d) => setActiveStudy(d.study))
+        // Abrir o estudo já baixou as notificações dele no servidor; refreshMe
+        // atualiza o sino/contadores na hora (sem esperar o polling).
+        .then((d) => { setActiveStudy(d.study); refreshMe(); })
         .catch(() => router.replace(view === 'gestaoStudy' ? '/gestao' : '/feed'));
     } else if (view === 'ticket' && routeId) {
       setActiveTicket(null); setTicketDraft(''); setEditingTicket(null); setEditRef(null); setRefQuery(''); setRefResults([]);
       getJSON<{ ticket: TicketDetailT }>(`/api/tickets/${routeId}`)
-        .then((d) => { setActiveTicket(d.ticket); markTicketSeen(routeId); })
+        // Abrir o chamado baixa as notificações (no GET) e marca as mensagens como
+        // vistas; espera o "seen" e então atualiza contadores (sino + Chamados).
+        .then(async (d) => { setActiveTicket(d.ticket); try { await postJSON(`/api/tickets/${routeId}/seen`); } catch {} refreshMe(); })
         .catch(() => router.replace('/feed'));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
