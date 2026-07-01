@@ -5,7 +5,7 @@ import Avatar from './Avatar';
 import CategoryManager from './CategoryManager';
 import VideoForm from './VideoForm';
 import {
-  IconHome, IconTicket, IconBookmark, IconBell, IconPlus, IconLayout,
+  IconHome, IconTicket, IconBookmark, IconComment, IconPlus, IconLayout,
   IconSun, IconMoon, IconVideo, IconCheck, IconUsers,
 } from './icons';
 import { useApp } from './AppProvider';
@@ -73,7 +73,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <button onClick={goVideos} style={navBtn(view === 'videos', false)}><IconVideo size={19} /><span>Vídeos</span></button>
             <button onClick={goTickets} style={navBtn(view === 'tickets' || view === 'ticket', false)}><IconTicket size={19} /><span>Chamados</span>{unseenTicketCount > 0 && <span style={ticketBadge}>{unseenTicketCount}</span>}</button>
             <button onClick={goSaved} style={navBtn(view === 'saved', false)}><IconBookmark size={19} /><span style={{ flex: 1 }}>Estudos salvos</span><span style={{ fontSize: 12, color: 'var(--fg3)', fontWeight: 700 }}>{savedCount}</span></button>
-            <button onClick={goNotifications} style={navBtn(view === 'notifications', false)}><IconBell size={19} /><span style={{ flex: 1 }}>Notificações</span>{unreadCount > 0 && <span style={notifBadge}>{unreadCount}</span>}</button>
+            <button onClick={goNotifications} style={navBtn(view === 'notifications', false)}><IconComment size={19} /><span style={{ flex: 1 }}>Comentários</span>{unreadCount > 0 && <span style={notifBadge}>{unreadCount}</span>}</button>
           </nav>
           <button onClick={onPrimary} style={{ marginTop: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 9, padding: 12, borderRadius: 13, border: 'none', background: 'var(--accent)', color: '#fff', fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: 14, cursor: 'pointer', boxShadow: '0 6px 18px var(--accent-soft)' }}><IconPlus size={17} sw={2.4} />{primaryLabel}</button>
           <div style={{ flex: 1 }} />
@@ -118,7 +118,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <RoleSwitch horizontal />
             <ThemeBtn pad={9} />
             <button onClick={() => setNav('sidebar')} title="Layout de navegação" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 9, borderRadius: 11, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--fg2)', cursor: 'pointer' }}><IconLayout size={17} /></button>
-            <button onClick={goNotifications} title="Notificações" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 9, borderRadius: 11, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--fg2)', cursor: 'pointer' }}><IconBell size={17} />{unreadCount > 0 && <span style={{ position: 'absolute', top: -6, right: -6, ...notifBadge }}>{unreadCount}</span>}</button>
+            <button onClick={goNotifications} title="Comentários e perguntas" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 9, borderRadius: 11, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--fg2)', cursor: 'pointer' }}><IconComment size={17} />{unreadCount > 0 && <span style={{ position: 'absolute', top: -6, right: -6, ...notifBadge }}>{unreadCount}</span>}</button>
             <button onClick={goProfile} title="Minha área" style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}><Avatar name={me.user.name} avatar={me.user.avatar} size={38} role={acting} /></button>
             <button onClick={onPrimary} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 15px', borderRadius: 11, border: 'none', background: 'var(--accent)', color: '#fff', fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: 13.5, cursor: 'pointer', boxShadow: '0 5px 14px var(--accent-soft)' }}><IconPlus size={15} sw={2.6} />{primaryLabel}</button>
           </div>

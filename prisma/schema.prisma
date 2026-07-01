@@ -293,11 +293,12 @@ model Notification {
   id         String   @id @default(uuid())
   userId     String   @map("user_id")
   user       AppUser  @relation(fields: [userId], references: [id])
-  kind       String // pergunta|chamado|estudo|curtida|resposta
+  kind       String // pergunta|estudo|resposta (comentários/perguntas em publicações)
   title      String
   body       String
-  targetType String?  @map("target_type") // study|ticket
-  targetId   String?  @map("target_id")
+  targetType String?  @map("target_type") // study (feed estudos) | gestaoStudy (feed gestão)
+  targetId   String?  @map("target_id") // id da publicação
+  commentId  String?  @map("comment_id") // comentário/pergunta específico, p/ rolar até ele
   read       Boolean  @default(false)
   createdAt  DateTime @default(now()) @map("created_at")
 

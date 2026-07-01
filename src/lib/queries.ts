@@ -348,7 +348,7 @@ export async function counts(me: CurrentUser) {
   const [openTickets, saved, unread, unseenTickets] = await Promise.all([
     prisma.ticket.count({ where: { ...ticketScope(me), status: { in: ['aberto', 'andamento'] } } }),
     prisma.studySave.count({ where: { userId: me.user.id } }),
-    prisma.notification.count({ where: { userId: me.user.id, read: false } }),
+    prisma.notification.count({ where: { userId: me.user.id, read: false, targetType: { in: ['study', 'gestaoStudy'] } } }),
     // Chamados (não fechados) com pelo menos uma mensagem da outra ponta ainda não
     // vista por mim — é o número que vai no badge do menu "Chamados".
     prisma.ticket.count({
@@ -363,7 +363,9 @@ export async function counts(me: CurrentUser) {
 }
 
 export async function listNotifications(me: CurrentUser, opts: { limit?: number; offset?: number } = {}) {
-  const where = { userId: me.user.id };
+  // Só comentários/perguntas em publicações (feed estudos/gestão). Chamados não
+  // geram mais notificação; registros antigos de chamado ficam de fora do filtro.
+  const where = { userId: me.user.id, targetType: { in: ['study', 'gestaoStudy'] } };
   const take = Math.min(Math.max(opts.limit ?? 20, 1), 100);
   const skip = Math.max(opts.offset ?? 0, 0);
   const [ns, total] = await Promise.all([
@@ -379,6 +381,7 @@ export async function listNotifications(me: CurrentUser, opts: { limit?: number;
       body: n.body,
       targetType: n.targetType,
       targetId: n.targetId,
+      commentId: n.commentId,
       read: n.read,
       createdAt: n.createdAt.toISOString(),
     })),

@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireUser, resolveActingRole } from '@/lib/api';
 import { prisma } from '@/lib/db';
-import { notifyTicketReply } from '@/lib/notify';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,9 +29,5 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     prisma.ticketMessage.create({ data: { ticketId: id, authorId: me.user.id, role, text } }),
     prisma.ticket.update({ where: { id }, data: { status: newStatus } }),
   ]);
-  await notifyTicketReply(ticket, { id: me.user.id, name: me.user.name }, role);
-
-  // (Sem push de comunicado ao Nexus: a mensagem do chamado fica só no sino
-  // interno do Consultoria Plus. O Nexus só recebe comunicado de ESTUDO novo.)
   return NextResponse.json({ ok: true, status: newStatus });
 }

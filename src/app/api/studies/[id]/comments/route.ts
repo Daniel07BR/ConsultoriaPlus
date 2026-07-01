@@ -24,7 +24,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const comment = await prisma.comment.create({
     data: { studyId: id, authorId: me.user.id, role, text, isQuestion },
   });
-  await notifyOnComment(id, { id: me.user.id, name: me.user.name }, isQuestion, role, study.feed);
+  await notifyOnComment(id, comment.id, { id: me.user.id, name: me.user.name }, isQuestion, role, study.feed);
 
   // (Sem push de comunicado ao Nexus: perguntas/respostas em estudos ficam só no
   // sino interno do Consultoria Plus. O Nexus só recebe comunicado de ESTUDO novo.)

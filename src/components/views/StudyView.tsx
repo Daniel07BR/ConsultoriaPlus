@@ -1,5 +1,6 @@
 'use client';
 // Leitura de um estudo + interações (comentários/perguntas). Extraído (Fase 2).
+import { useEffect, useState } from 'react';
 import Avatar from '../Avatar';
 import { IconArrowLeft, IconThumbsUp, IconBookmark, IconX, IconPlay, IconExternal, IconQuestion } from '../icons';
 import { attIcon } from '../ui/attIcon';
@@ -16,6 +17,21 @@ export function StudyView() {
     acting, editingComment, setEditingComment, setActing, saveComment, deleteComment,
   } = useApp();
   const s = activeStudy;
+  // Vindo de uma notificação (`/estudos/:id#c-<commentId>`): ao carregar os
+  // comentários, rola até o comentário/pergunta e o destaca por alguns segundos.
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!s?.comments?.length) return;
+    const m = window.location.hash.match(/^#c-(.+)$/);
+    if (!m) return;
+    const cid = m[1];
+    const el = document.getElementById(`c-${cid}`);
+    if (!el) return;
+    setHighlightId(cid);
+    requestAnimationFrame(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+    const timer = setTimeout(() => setHighlightId(null), 2800);
+    return () => clearTimeout(timer);
+  }, [s?.id, s?.comments?.length]);
   if (!s) return <div style={{ paddingTop: 60, textAlign: 'center', color: 'var(--fg3)' }}>Carregando…</div>;
   const isGestao = s.feed === 'gestao';
   // Editar: estudos → consultor/admin; gestão → só o autor. Excluir: + diretoria/admin.
@@ -92,8 +108,9 @@ export function StudyView() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
           {s.comments.map((c) => {
             const isC = c.role === 'consultor';
+            const hot = highlightId === c.id; // destaque ao chegar por notificação
             return (
-              <div key={c.id} style={{ background: c.isQuestion ? 'var(--accent-soft)' : 'var(--surface2)', border: `1px solid ${c.isQuestion ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 16, padding: '16px 18px' }}>
+              <div key={c.id} id={`c-${c.id}`} style={{ background: c.isQuestion ? 'var(--accent-soft)' : 'var(--surface2)', border: `1px solid ${hot ? 'var(--accent)' : (c.isQuestion ? 'var(--accent)' : 'var(--border)')}`, borderRadius: 16, padding: '16px 18px', boxShadow: hot ? '0 0 0 3px var(--accent-soft), 0 8px 24px var(--shadow)' : undefined, transition: 'box-shadow .3s ease, border-color .3s ease' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 9 }}>
                   <Avatar name={c.author.name} avatar={c.author.avatar} size={36} role={isC ? 'consultor' : 'cliente'} />
                   <div style={{ flex: 1, minWidth: 0 }}>

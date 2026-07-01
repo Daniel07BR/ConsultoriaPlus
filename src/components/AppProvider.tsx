@@ -313,7 +313,13 @@ function useAppState() {
 
   // Abre o detalhe na rota do feed correto (carrega o estudo/publicação). Aceita o
   // feed do próprio card; por padrão usa o feed da tela atual.
-  const openStudy = (id: string, studyFeed: string = feed) => { scrollTop(); router.push(studyFeed === 'gestao' ? `/gestao/${id}` : `/estudos/${id}`); };
+  const openStudy = (id: string, studyFeed: string = feed, anchor?: string | null) => {
+    const base = studyFeed === 'gestao' ? `/gestao/${id}` : `/estudos/${id}`;
+    // Com âncora (clique numa notificação de comentário): NÃO sobe ao topo; o
+    // StudyView rola até `#c-<commentId>` e o destaca ao carregar os comentários.
+    if (anchor) { router.push(`${base}#c-${anchor}`); }
+    else { scrollTop(); router.push(base); }
+  };
   const openTicket = (id: string) => { scrollTop(); router.push(`/chamados/${id}`); };
 
   // ---- ações ----
@@ -630,8 +636,9 @@ function useAppState() {
 
   const openNotif = async (n: NotifT) => {
     if (!n.read) { await postJSON(`/api/notifications/${n.id}/read`); setNotifications((ns) => ns.map((x) => (x.id === n.id ? { ...x, read: true } : x))); refreshMe(); }
-    if (n.targetType === 'study' && n.targetId) openStudy(n.targetId);
-    else if (n.targetType === 'ticket' && n.targetId) openTicket(n.targetId);
+    if ((n.targetType === 'study' || n.targetType === 'gestaoStudy') && n.targetId) {
+      openStudy(n.targetId, n.targetType === 'gestaoStudy' ? 'gestao' : 'estudos', n.commentId);
+    }
   };
   const markAllRead = async () => { await postJSON('/api/notifications/read-all'); setNotifications((ns) => ns.map((x) => ({ ...x, read: true }))); flashMsg('Todas marcadas como lidas'); refreshMe(); };
   const logout = async () => { await postJSON('/api/logout'); window.location.href = '/login'; };

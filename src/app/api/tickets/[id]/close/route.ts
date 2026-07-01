@@ -3,7 +3,6 @@ import { NextResponse } from 'next/server';
 import { requireUser } from '@/lib/api';
 import { prisma } from '@/lib/db';
 import { RATING_LABELS } from '@/lib/present';
-import { notifyTicketClosed } from '@/lib/notify';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +27,5 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     where: { id },
     data: { status: 'fechado', rating, ratingLabel: label, closedAt: new Date() },
   });
-  await notifyTicketClosed(ticket, { id: me.user.id, name: me.user.name }, rating, label);
   return NextResponse.json({ ok: true, rating, label });
 }

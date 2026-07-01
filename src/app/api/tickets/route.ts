@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/lib/api';
 import { prisma } from '@/lib/db';
 import { listTickets } from '@/lib/queries';
-import { notifyNewTicket } from '@/lib/notify';
 
 export const dynamic = 'force-dynamic';
 
@@ -44,7 +43,6 @@ export async function POST(req: NextRequest) {
       messages: { create: [{ authorId: me.user.id, role: 'cliente', text: body }] },
     },
   });
-  await notifyNewTicket(ticket.id, subject, { id: me.user.id, name: me.user.name });
 
   // (Sem push de comunicado ao Nexus: chamados/mensagens/comentários ficam só no
   // sino interno do Consultoria Plus. O Nexus só recebe comunicado de ESTUDO novo.)

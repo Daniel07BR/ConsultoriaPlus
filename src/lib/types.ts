@@ -54,5 +54,5 @@ export interface TicketDetailT {
   canAssign: boolean; assignedToMe: boolean;
   author: { name: string; avatar: string | null; department: string | null }; messages: MessageT[];
 }
-export interface NotifT { id: string; kind: string; title: string; body: string; targetType: string | null; targetId: string | null; read: boolean; createdAt: string }
+export interface NotifT { id: string; kind: string; title: string; body: string; targetType: string | null; targetId: string | null; commentId: string | null; read: boolean; createdAt: string }
 export interface VideoT { id: string; title: string; description: string | null; url: string; youtubeId: string | null; thumbUrl: string | null; tab: string; source: string; courseTitle: string | null; sourceUrl: string | null; watched: boolean; author: { name: string; avatar: string | null } | null; createdAt: string }
