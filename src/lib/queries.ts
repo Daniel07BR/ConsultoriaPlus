@@ -41,25 +41,66 @@ export async function listStudies(
   const limit = Math.min(Math.max(opts.limit ?? 12, 1), 50);
   const offset = Math.max(opts.offset ?? 0, 0);
 
-  const [total, rows] = await Promise.all([
-    prisma.study.count({ where }),
-    prisma.study.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      skip: offset,
-      take: limit,
-      include: {
-        author: { select: { name: true, cargo: true, avatar: true, department: true } },
-        attachments: true,
-        _count: { select: { likes: true, comments: true, views: true } },
-        likes: { where: { userId: me.user.id }, select: { userId: true } },
-        saves: { where: { userId: me.user.id }, select: { userId: true } },
-        views: { where: { userId: me.user.id }, select: { userId: true } },
-      },
-    }),
-  ]);
+  const total = await prisma.study.count({ where });
 
-  let studies = rows.map((s) => ({
+  // Consultor: publicações com PERGUNTA EM ABERTO (última pergunta mais nova que a
+  // última resposta de consultor) são fixadas no TOPO do feed — GLOBAL, respeitando
+  // o filtro/busca atual, valendo entre páginas (não só a página carregada).
+  let openStudyIds: string[] = [];
+  if (me.canConsultor && !opts.savedOnly) {
+    const scope = await prisma.study.findMany({ where, select: { id: true } });
+    const scopeIds = scope.map((s) => s.id);
+    if (scopeIds.length) {
+      const qs = await prisma.comment.findMany({ where: { isQuestion: true, studyId: { in: scopeIds } }, select: { studyId: true, createdAt: true } });
+      if (qs.length) {
+        const lastQ = new Map<string, number>();
+        for (const c of qs) { const tms = c.createdAt.getTime(); if (tms > (lastQ.get(c.studyId) ?? 0)) lastQ.set(c.studyId, tms); }
+        const sids = [...lastQ.keys()];
+        const replies = await prisma.comment.groupBy({ by: ['studyId'], where: { studyId: { in: sids }, role: 'consultor' }, _max: { createdAt: true } });
+        const lastR = new Map(replies.map((r) => [r.studyId, r._max.createdAt?.getTime() ?? 0]));
+        openStudyIds = sids.filter((id) => (lastQ.get(id) ?? 0) > (lastR.get(id) ?? 0));
+      }
+    }
+  }
+
+  // Monta a página: fixadas (por data) primeiro, depois o restante paginado. O
+  // offset "atravessa" as fixadas para o bloco normal quando elas acabam.
+  const pinnedAll = openStudyIds.length
+    ? await prisma.study.findMany({
+        where: { ...where, id: { in: openStudyIds } },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          author: { select: { name: true, cargo: true, avatar: true, department: true } },
+          attachments: true,
+          _count: { select: { likes: true, comments: true, views: true } },
+          likes: { where: { userId: me.user.id }, select: { userId: true } },
+          saves: { where: { userId: me.user.id }, select: { userId: true } },
+          views: { where: { userId: me.user.id }, select: { userId: true } },
+        },
+      })
+    : [];
+  const pinnedSlice = pinnedAll.slice(offset, offset + limit);
+  const need = limit - pinnedSlice.length;
+  const normal = need > 0
+    ? await prisma.study.findMany({
+        where: openStudyIds.length ? { ...where, id: { notIn: openStudyIds } } : where,
+        orderBy: { createdAt: 'desc' },
+        skip: Math.max(0, offset - pinnedAll.length),
+        take: need,
+        include: {
+          author: { select: { name: true, cargo: true, avatar: true, department: true } },
+          attachments: true,
+          _count: { select: { likes: true, comments: true, views: true } },
+          likes: { where: { userId: me.user.id }, select: { userId: true } },
+          saves: { where: { userId: me.user.id }, select: { userId: true } },
+          views: { where: { userId: me.user.id }, select: { userId: true } },
+        },
+      })
+    : [];
+  const rows = [...pinnedSlice, ...normal];
+
+  const openSet = new Set(openStudyIds);
+  const studies = rows.map((s) => ({
     id: s.id,
     feed: s.feed,
     title: s.title,
@@ -75,29 +116,9 @@ export async function listStudies(
     commentCount: s._count.comments,
     views: s._count.views,
     viewed: s.views.length > 0,
-    openQuestion: false,
+    openQuestion: openSet.has(s.id),
     attachments: s.attachments.map((a) => ({ kind: a.kind, name: a.name, meta: a.meta, url: a.url })),
   }));
-
-  // Pergunta em aberto = existe pergunta cuja última é mais nova que a última
-  // resposta de consultor (ou sem resposta). Só interessa a quem responde
-  // (consultor/diretoria); marca o card e o sobe para o topo do feed.
-  if (me.canConsultor && studies.length) {
-    const ids = studies.map((s) => s.id);
-    const [qMax, rMax] = await Promise.all([
-      prisma.comment.groupBy({ by: ['studyId'], where: { studyId: { in: ids }, isQuestion: true }, _max: { createdAt: true } }),
-      prisma.comment.groupBy({ by: ['studyId'], where: { studyId: { in: ids }, role: 'consultor' }, _max: { createdAt: true } }),
-    ]);
-    const lastQ = new Map(qMax.map((g) => [g.studyId, g._max.createdAt?.getTime() ?? 0]));
-    const lastR = new Map(rMax.map((g) => [g.studyId, g._max.createdAt?.getTime() ?? 0]));
-    studies = studies.map((s) => {
-      const q = lastQ.get(s.id) ?? 0;
-      const r = lastR.get(s.id) ?? 0;
-      return { ...s, openQuestion: q > 0 && q > r };
-    });
-    // Perguntas em aberto primeiro; mantém a ordem por data dentro de cada grupo.
-    studies = [...studies.filter((s) => s.openQuestion), ...studies.filter((s) => !s.openQuestion)];
-  }
   return { studies, total };
 }
 
