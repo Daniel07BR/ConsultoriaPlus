@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireUser, resolveActingRole, ensureStudyAccess } from '@/lib/api';
 import { prisma } from '@/lib/db';
 import { notifyOnComment } from '@/lib/notify';
+import { notifyNexusStudyAnswer } from '@/lib/notify-nexus';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,7 +27,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   });
   await notifyOnComment(id, comment.id, { id: me.user.id, name: me.user.name }, isQuestion, role, study.feed);
 
-  // (Sem push de comunicado ao Nexus: perguntas/respostas em estudos ficam só no
-  // sino interno do Consultoria Plus. O Nexus só recebe comunicado de ESTUDO novo.)
+  // Alerta cross-system no Nexus: quando a consultoria RESPONDE (comentário de
+  // consultor), avisa QUEM PERGUNTOU na publicação (sino embutido do Nexus). Vale
+  // p/ os dois feeds (estudos e gestão). Perguntas novas não alertam consultores aqui.
+  if (role === 'consultor') {
+    void notifyNexusStudyAnswer({
+      studyId: id,
+      studyTitle: study.title,
+      answererNexusUserId: me.user.nexusUserId,
+      answererAppUserId: me.user.id,
+      answererName: me.user.name,
+      commentId: comment.id,
+    });
+  }
   return NextResponse.json({ id: comment.id });
 }
