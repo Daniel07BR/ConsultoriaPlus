@@ -72,10 +72,10 @@ export async function notifyOnComment(
     // Pergunta de cliente → alerta a EQUIPE de consultores (alguém precisa responder).
     const ids = await consultorUserIds(commenter.id);
     await bulk(ids, { kind: 'pergunta', title: commenter.name, body: `fez uma pergunta no estudo "${study.title}".`, ...t });
-  } else if (study.authorId !== commenter.id) {
-    // Comentário comum → avisa o autor do estudo.
-    await prisma.notification.create({
-      data: { userId: study.authorId, kind: 'estudo', title: commenter.name, body: `comentou no seu estudo "${study.title}".`, ...t },
-    });
+  } else {
+    // Comentário comum de cliente → também alerta a EQUIPE de consultores (não só o
+    // autor), para aparecer no inbox deles como "comentário" (cor distinta da pergunta).
+    const ids = await consultorUserIds(commenter.id);
+    await bulk(ids, { kind: 'estudo', title: commenter.name, body: `comentou no estudo "${study.title}".`, ...t });
   }
 }
