@@ -47,11 +47,16 @@ export async function listStudies(
   // última resposta de consultor) são fixadas no TOPO do feed — GLOBAL, respeitando
   // o filtro/busca atual, valendo entre páginas (não só a página carregada).
   let openStudyIds: string[] = [];
+  const askersByStudy = new Map<string, { name: string; avatar: string | null }[]>();
   if (me.canConsultor && !opts.savedOnly) {
     const scope = await prisma.study.findMany({ where, select: { id: true } });
     const scopeIds = scope.map((s) => s.id);
     if (scopeIds.length) {
-      const qs = await prisma.comment.findMany({ where: { isQuestion: true, studyId: { in: scopeIds } }, select: { studyId: true, createdAt: true } });
+      const qs = await prisma.comment.findMany({
+        where: { isQuestion: true, studyId: { in: scopeIds } },
+        select: { studyId: true, createdAt: true, author: { select: { name: true, avatar: true } } },
+        orderBy: { createdAt: 'desc' },
+      });
       if (qs.length) {
         const lastQ = new Map<string, number>();
         for (const c of qs) { const tms = c.createdAt.getTime(); if (tms > (lastQ.get(c.studyId) ?? 0)) lastQ.set(c.studyId, tms); }
@@ -59,6 +64,15 @@ export async function listStudies(
         const replies = await prisma.comment.groupBy({ by: ['studyId'], where: { studyId: { in: sids }, role: 'consultor' }, _max: { createdAt: true } });
         const lastR = new Map(replies.map((r) => [r.studyId, r._max.createdAt?.getTime() ?? 0]));
         openStudyIds = sids.filter((id) => (lastQ.get(id) ?? 0) > (lastR.get(id) ?? 0));
+        // Quem tem pergunta PENDENTE (após a última resposta) em cada estudo aberto —
+        // vira o badge com foto no card. qs vem do mais recente ao mais antigo.
+        const openSetTmp = new Set(openStudyIds);
+        for (const c of qs) {
+          if (!openSetTmp.has(c.studyId) || c.createdAt.getTime() <= (lastR.get(c.studyId) ?? 0)) continue;
+          const arr = askersByStudy.get(c.studyId) ?? [];
+          if (!arr.some((a) => a.name === c.author.name)) arr.push({ name: c.author.name, avatar: c.author.avatar });
+          askersByStudy.set(c.studyId, arr);
+        }
       }
     }
   }
@@ -117,6 +131,7 @@ export async function listStudies(
     views: s._count.views,
     viewed: s.views.length > 0,
     openQuestion: openSet.has(s.id),
+    openAskers: askersByStudy.get(s.id) ?? [],
     attachments: s.attachments.map((a) => ({ kind: a.kind, name: a.name, meta: a.meta, url: a.url })),
   }));
   return { studies, total };
@@ -456,6 +471,13 @@ export async function listNotifications(me: CurrentUser, opts: { limit?: number;
     prisma.notification.findMany({ where, orderBy: { createdAt: 'desc' }, take, skip }),
     prisma.notification.count({ where }),
   ]);
+  // Foto do autor (badge no inbox): resolvida pelo comentário referenciado. Se o
+  // comentário foi excluído (não deveria — apagamos as notificações junto), cai nas iniciais.
+  const cids = ns.map((n) => n.commentId).filter((x): x is string => !!x);
+  const authors = cids.length
+    ? await prisma.comment.findMany({ where: { id: { in: cids } }, select: { id: true, author: { select: { avatar: true } } } })
+    : [];
+  const avatarByComment = new Map(authors.map((c) => [c.id, c.author.avatar]));
   return {
     total,
     notifications: ns.map((n) => ({
@@ -466,6 +488,7 @@ export async function listNotifications(me: CurrentUser, opts: { limit?: number;
       targetType: n.targetType,
       targetId: n.targetId,
       commentId: n.commentId,
+      authorAvatar: n.commentId ? (avatarByComment.get(n.commentId) ?? null) : null,
       read: n.read,
       createdAt: n.createdAt.toISOString(),
     })),

@@ -5,6 +5,7 @@
 import { IconCheck, IconRefresh, IconQuestion, IconComment } from '../icons';
 import { timeAgo } from '@/lib/present';
 import { useApp } from '../AppProvider';
+import Avatar from '../Avatar';
 
 // Estilo por tipo: pergunta (âmbar, precisa de resposta) vs comentário (azul).
 function kindStyle(kind: string) {
@@ -35,7 +36,10 @@ export function NotificationsView() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
             {openQuestions.map((q) => (
               <button key={q.commentId} onClick={() => openStudy(q.studyId, q.feed, q.commentId)} style={{ textAlign: 'left', color: 'var(--fg)', display: 'flex', alignItems: 'flex-start', gap: 14, background: 'rgba(245,166,35,0.10)', border: '1px solid #f5a623', borderRadius: 16, padding: '16px 18px', cursor: 'pointer', boxShadow: '0 0 0 1px rgba(245,166,35,0.35)' }}>
-                <div style={{ width: 42, height: 42, borderRadius: 12, background: 'rgba(245,166,35,0.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><span className="cp-alert-pulse" style={{ display: 'inline-flex' }}><IconQuestion size={20} stroke="#e0902a" sw={2.2} /></span></div>
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <Avatar name={q.author.name} avatar={q.author.avatar} size={44} role="cliente" />
+                  <span className="cp-alert-dot" style={{ position: 'absolute', right: -3, bottom: -3, width: 20, height: 20, borderRadius: '50%', background: '#f5a623', border: '2px solid var(--surface)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><IconQuestion size={12} stroke="#fff" sw={2.6} /></span>
+                </div>
                 <div style={{ flex: 1, minWidth: 0, paddingTop: 1 }}>
                   <div style={{ marginBottom: 3 }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 9px', borderRadius: 999, background: 'rgba(245,166,35,0.18)', color: '#c47d10', fontSize: 10.5, fontWeight: 700, letterSpacing: '.03em' }}>Pergunta em aberto</span></div>
                   <div style={{ fontSize: 14.5, lineHeight: 1.5 }}><span style={{ fontWeight: 700 }}>{q.author.name}</span> <span style={{ color: 'var(--fg2)' }}>perguntou em “{q.studyTitle}”.</span></div>
@@ -56,7 +60,10 @@ export function NotificationsView() {
           const k = kindStyle(n.kind);
           return (
             <button key={n.id} onClick={() => openNotif(n)} style={{ textAlign: 'left', color: 'var(--fg)', display: 'flex', alignItems: 'flex-start', gap: 14, background: n.read ? 'var(--surface)' : 'var(--accent-soft)', border: `1px solid ${n.read ? 'var(--border)' : 'var(--accent)'}`, borderRadius: 16, padding: '16px 18px', cursor: 'pointer' }}>
-              <div style={{ width: 42, height: 42, borderRadius: 12, background: k.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><k.Icon size={20} stroke={k.color} sw={2.2} /></div>
+              <div style={{ position: 'relative', flexShrink: 0 }}>
+                <Avatar name={n.title} avatar={n.authorAvatar} size={44} role="cliente" />
+                <span style={{ position: 'absolute', right: -3, bottom: -3, width: 20, height: 20, borderRadius: '50%', background: k.color, border: '2px solid var(--surface)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}><k.Icon size={12} stroke="#fff" sw={2.6} /></span>
+              </div>
               <div style={{ flex: 1, minWidth: 0, paddingTop: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3, flexWrap: 'wrap' }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 9px', borderRadius: 999, background: k.bg, color: k.color, fontSize: 10.5, fontWeight: 700, letterSpacing: '.03em' }}>{k.label}</span>

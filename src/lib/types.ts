@@ -22,6 +22,7 @@ export interface StudyCard {
   author: { name: string; title: string | null; avatar: string | null; department: string | null };
   likes: number; liked: boolean; saved: boolean; commentCount: number; attachments: Attachment[];
   views: number; viewed: boolean; openQuestion: boolean;
+  openAskers: { name: string; avatar: string | null }[]; // quem tem pergunta em aberto (badge no card)
 }
 export interface ViewsPayload {
   total: number;
@@ -54,6 +55,6 @@ export interface TicketDetailT {
   canAssign: boolean; assignedToMe: boolean;
   author: { name: string; avatar: string | null; department: string | null }; messages: MessageT[];
 }
-export interface NotifT { id: string; kind: string; title: string; body: string; targetType: string | null; targetId: string | null; commentId: string | null; read: boolean; createdAt: string }
+export interface NotifT { id: string; kind: string; title: string; body: string; targetType: string | null; targetId: string | null; commentId: string | null; authorAvatar: string | null; read: boolean; createdAt: string }
 export interface OpenQuestionT { commentId: string; studyId: string; feed: string; studyTitle: string; author: { name: string; avatar: string | null }; text: string; createdAt: string }
 export interface VideoT { id: string; title: string; description: string | null; url: string; youtubeId: string | null; thumbUrl: string | null; tab: string; source: string; courseTitle: string | null; sourceUrl: string | null; watched: boolean; author: { name: string; avatar: string | null } | null; createdAt: string }

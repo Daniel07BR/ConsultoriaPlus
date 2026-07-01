@@ -21,9 +21,17 @@ export function StudyCardEl({ s }: { s: StudyCard }) {
   return (
     <article style={{ background: 'var(--surface)', border, borderRadius: 20, boxShadow, padding: '22px 24px' }}>
       {openQ && (
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginBottom: 14, padding: '7px 13px', borderRadius: 999, background: 'rgba(245,166,35,0.16)', color: '#c47d10', fontWeight: 700, fontSize: 12.5 }}>
-          <span className="cp-alert-dot" style={{ width: 8, height: 8, borderRadius: '50%', background: '#f5a623', display: 'inline-block' }} />
-          Pergunta em aberto — responda
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 13px', borderRadius: 999, background: 'rgba(245,166,35,0.16)', color: '#c47d10', fontWeight: 700, fontSize: 12.5 }}>
+            <span className="cp-alert-dot" style={{ width: 8, height: 8, borderRadius: '50%', background: '#f5a623', display: 'inline-block' }} />
+            Pergunta em aberto — responda
+          </span>
+          {s.openAskers.length > 0 && (
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }} title={`Pergunta de ${s.openAskers.map((a) => a.name).join(', ')}`}>
+              <Avatar name={s.openAskers[0].name} avatar={s.openAskers[0].avatar} size={26} role="cliente" />
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--fg2)' }}>{s.openAskers[0].name.split(' ').slice(0, 2).join(' ')}{s.openAskers.length > 1 ? ` +${s.openAskers.length - 1}` : ''}</span>
+            </span>
+          )}
         </div>
       )}
       {s.coverImage && (

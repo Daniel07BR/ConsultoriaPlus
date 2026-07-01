@@ -31,6 +31,9 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const r = await loadOwned(id, me.user.id, me.canConsultor);
   if ('error' in r) return NextResponse.json({ error: 'sem acesso' }, { status: r.error });
+  // Remove também as notificações desse comentário/pergunta — o alerta some junto
+  // (some do inbox e zera o contador de "em aberto"/"não lido").
+  await prisma.notification.deleteMany({ where: { commentId: id } });
   await prisma.comment.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }

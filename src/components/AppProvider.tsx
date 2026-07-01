@@ -421,6 +421,9 @@ function useAppState() {
     await fetch(`/api/comments/${id}`, { method: 'DELETE' });
     const d = await getJSON<{ study: StudyDetailT }>(`/api/studies/${activeStudy.id}`);
     setActiveStudy(d.study);
+    // Atualiza na hora os alertas de "pergunta em aberto" (menu/botão) e o inbox.
+    refreshMe();
+    loadOpenQuestions();
   };
 
   const saveMessage = async () => {
