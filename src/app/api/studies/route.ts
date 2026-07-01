@@ -18,15 +18,19 @@ export async function GET(req: NextRequest) {
     const denied = ensureFeedAccess(me, 'gestao');
     if (denied) return denied;
   }
-  const studies = await listStudies(me, {
+  const limit = parseInt(sp.get('limit') || '', 10);
+  const offset = parseInt(sp.get('offset') || '', 10);
+  const { studies, total } = await listStudies(me, {
     filter: sp.get('filter') || undefined,
     search: sp.get('search') || undefined,
     savedOnly,
     from: sp.get('from') || undefined,
     to: sp.get('to') || undefined,
     feed,
+    limit: Number.isInteger(limit) ? limit : undefined,
+    offset: Number.isInteger(offset) ? offset : undefined,
   });
-  return NextResponse.json({ studies });
+  return NextResponse.json({ studies, total });
 }
 
 export async function POST(req: NextRequest) {

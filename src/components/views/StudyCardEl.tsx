@@ -4,14 +4,19 @@ import Avatar from '../Avatar';
 import { IconThumbsUp, IconComment, IconBookmark, IconArrowRight } from '../icons';
 import { attIcon } from '../ui/attIcon';
 import { LikesHoverButton } from '../ui/LikesHoverButton';
-import { timeAgo } from '@/lib/present';
+import { timeAgo, consultorColor } from '@/lib/present';
 import { useApp } from '../AppProvider';
 import type { StudyCard } from '@/lib/types';
 
 export function StudyCardEl({ s }: { s: StudyCard }) {
   const { openStudy, colorOf, openLink, toggleLike, openViews, toggleSave } = useApp();
+  // Realce colorido na borda pela cor do autor (mesma dos chamados: Marina rosé,
+  // Edilaine teal). Só no feed de estudos — o feed de gestão mantém o tema índigo.
+  const ac = s.feed === 'estudos' ? consultorColor(s.author.name) : null;
+  const border = ac ? `1px solid ${ac}66` : '1px solid var(--border)';
+  const boxShadow = ac ? `0 0 0 1px ${ac}66, 0 6px 20px ${ac}33` : '0 1px 3px var(--shadow)';
   return (
-    <article style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, boxShadow: '0 1px 3px var(--shadow)', padding: '22px 24px' }}>
+    <article style={{ background: 'var(--surface)', border, borderRadius: 20, boxShadow, padding: '22px 24px' }}>
       {s.coverImage && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={s.coverImage} alt="" onClick={() => openStudy(s.id, s.feed)} style={{ width: '100%', maxHeight: 220, objectFit: 'cover', borderRadius: 14, marginBottom: 16, display: 'block', cursor: 'pointer' }} />

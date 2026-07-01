@@ -6,7 +6,7 @@ import { useApp } from '../AppProvider';
 import { StudyCardEl } from './StudyCardEl';
 
 export function FeedView() {
-  const { view, feed, studies, dateFrom, setDateFrom, dateTo, setDateTo, search, setSearch, catNames, filter, setFilter, colorOf } = useApp();
+  const { view, feed, studies, studiesTotal, loadMoreStudies, dateFrom, setDateFrom, dateTo, setDateTo, search, setSearch, catNames, filter, setFilter, colorOf } = useApp();
   const isSaved = view === 'saved';
   const isGestao = feed === 'gestao';
   const list = studies;
@@ -51,6 +51,11 @@ export function FeedView() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
         {list.map((s) => <StudyCardEl key={s.id} s={s} />)}
       </div>
+      {list.length > 0 && list.length < studiesTotal && (
+        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 20 }}>
+          <button onClick={loadMoreStudies} style={{ padding: '11px 22px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg2)', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Carregar mais ({studiesTotal - list.length})</button>
+        </div>
+      )}
       {list.length === 0 && (
         <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--fg3)' }}>
           <div className="font-grotesk" style={{ fontSize: 18, fontWeight: 700, color: 'var(--fg2)' }}>{isSaved ? 'Nenhum estudo salvo' : 'Nenhum estudo encontrado'}</div>

@@ -11,7 +11,7 @@ function excerptOf(body: string): string {
 
 export async function listStudies(
   me: CurrentUser,
-  opts: { filter?: string; search?: string; savedOnly?: boolean; from?: string; to?: string; feed?: string } = {},
+  opts: { filter?: string; search?: string; savedOnly?: boolean; from?: string; to?: string; feed?: string; limit?: number; offset?: number } = {},
 ) {
   const where: Record<string, unknown> = {};
   if (opts.filter && opts.filter !== 'Todos') where.category = opts.filter;
@@ -27,27 +27,39 @@ export async function listStudies(
   if (opts.to) created.lte = new Date(opts.to + 'T23:59:59');
   if (Object.keys(created).length) where.createdAt = created;
 
-  let studies = await prisma.study.findMany({
-    where,
-    orderBy: { createdAt: 'desc' },
-    include: {
-      author: { select: { name: true, cargo: true, avatar: true, department: true } },
-      attachments: true,
-      _count: { select: { likes: true, comments: true, views: true } },
-      likes: { where: { userId: me.user.id }, select: { userId: true } },
-      saves: { where: { userId: me.user.id }, select: { userId: true } },
-      views: { where: { userId: me.user.id }, select: { userId: true } },
-    },
-  });
-
-  const q = (opts.search || '').trim().toLowerCase();
+  // Busca no banco (título/conteúdo/autor/categoria) — permite paginar sem trazer tudo.
+  const q = (opts.search || '').trim();
   if (q) {
-    studies = studies.filter((s) =>
-      (s.title + ' ' + s.body + ' ' + s.author.name + ' ' + s.category).toLowerCase().includes(q),
-    );
+    where.OR = [
+      { title: { contains: q, mode: 'insensitive' } },
+      { body: { contains: q, mode: 'insensitive' } },
+      { category: { contains: q, mode: 'insensitive' } },
+      { author: { name: { contains: q, mode: 'insensitive' } } },
+    ];
   }
 
-  return studies.map((s) => ({
+  const limit = Math.min(Math.max(opts.limit ?? 12, 1), 50);
+  const offset = Math.max(opts.offset ?? 0, 0);
+
+  const [total, rows] = await Promise.all([
+    prisma.study.count({ where }),
+    prisma.study.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip: offset,
+      take: limit,
+      include: {
+        author: { select: { name: true, cargo: true, avatar: true, department: true } },
+        attachments: true,
+        _count: { select: { likes: true, comments: true, views: true } },
+        likes: { where: { userId: me.user.id }, select: { userId: true } },
+        saves: { where: { userId: me.user.id }, select: { userId: true } },
+        views: { where: { userId: me.user.id }, select: { userId: true } },
+      },
+    }),
+  ]);
+
+  const studies = rows.map((s) => ({
     id: s.id,
     feed: s.feed,
     title: s.title,
@@ -65,6 +77,7 @@ export async function listStudies(
     viewed: s.views.length > 0,
     attachments: s.attachments.map((a) => ({ kind: a.kind, name: a.name, meta: a.meta, url: a.url })),
   }));
+  return { studies, total };
 }
 
 export async function getStudy(me: CurrentUser, id: string) {
@@ -167,7 +180,7 @@ export async function listTickets(me: CurrentUser, status?: string) {
 /** Histórico global: TODOS os chamados, visível a todos. Busca por título, autor e período. */
 export async function listTicketsHistory(
   me: CurrentUser,
-  opts: { q?: string; requester?: string; from?: string; to?: string } = {},
+  opts: { q?: string; requester?: string; from?: string; to?: string; limit?: number; offset?: number } = {},
 ) {
   const where: Record<string, unknown> = {};
   if (opts.q) {
@@ -183,12 +196,20 @@ export async function listTicketsHistory(
   if (opts.to) created.lte = new Date(opts.to + 'T23:59:59');
   if (Object.keys(created).length) where.createdAt = created;
 
-  const tickets = await prisma.ticket.findMany({
-    where,
-    orderBy: { createdAt: 'desc' },
-    include: { requester: { select: { name: true, avatar: true, department: true } }, messages: { orderBy: { createdAt: 'asc' }, select: { text: true, authorId: true, role: true, deletedAt: true, author: { select: { name: true, avatar: true } }, reads: { where: { userId: me.user.id }, select: { userId: true } } } } },
-  });
-  return tickets.map((t) => ticketSummary(t, me.user.id));
+  const limit = Math.min(Math.max(opts.limit ?? 15, 1), 50);
+  const offset = Math.max(opts.offset ?? 0, 0);
+
+  const [total, tickets] = await Promise.all([
+    prisma.ticket.count({ where }),
+    prisma.ticket.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip: offset,
+      take: limit,
+      include: { requester: { select: { name: true, avatar: true, department: true } }, messages: { orderBy: { createdAt: 'asc' }, select: { text: true, authorId: true, role: true, deletedAt: true, author: { select: { name: true, avatar: true } }, reads: { where: { userId: me.user.id }, select: { userId: true } } } } },
+    }),
+  ]);
+  return { tickets: tickets.map((t) => ticketSummary(t, me.user.id)), total };
 }
 
 export async function getTicket(me: CurrentUser, id: string) {

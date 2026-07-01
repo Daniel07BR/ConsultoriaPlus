@@ -17,6 +17,8 @@ import type {
 } from '@/lib/types';
 
 const PAGE_NOTIF = 20; // tamanho da página de notificações
+const PAGE_STUDIES = 12; // itens por página no feed de estudos/gestão
+const PAGE_HISTORY = 15; // itens por página no histórico de chamados
 
 function useAppState() {
   const router = useRouter();
@@ -48,6 +50,7 @@ function useAppState() {
   useEffect(() => { if (prefsLoaded.current) { try { localStorage.setItem('cp.nav', nav); } catch {} } }, [nav]);
 
   const [studies, setStudies] = useState<StudyCard[]>([]);
+  const [studiesTotal, setStudiesTotal] = useState(0);
   const [activeStudy, setActiveStudy] = useState<StudyDetailT | null>(null);
   const [tickets, setTickets] = useState<TicketCard[]>([]);
   const [activeTicket, setActiveTicket] = useState<TicketDetailT | null>(null);
@@ -62,6 +65,7 @@ function useAppState() {
   const editingMessageRef = useRef<{ id: string; text: string } | null>(null);
   const editingTicketRef = useRef<{ subject: string } | null>(null);
   const notifCountRef = useRef(0);
+  const studiesCountRef = useRef(0);
 
   const [filter, setFilter] = useState('Todos');
   const [search, setSearch] = useState('');
@@ -70,6 +74,7 @@ function useAppState() {
   const [ticketFilter, setTicketFilter] = useState('todos');
   const [ticketTab, setTicketTab] = useState<'meus' | 'historico'>('meus');
   const [historyTickets, setHistoryTickets] = useState<TicketCard[]>([]);
+  const [historyTotal, setHistoryTotal] = useState(0);
   const [hist, setHist] = useState({ q: '', requester: '', from: '', to: '' });
   const [closing, setClosing] = useState(false);
   const [ratingHover, setRatingHover] = useState(0);
@@ -114,7 +119,7 @@ function useAppState() {
     return m;
   }, []);
 
-  const loadStudies = useCallback(async (opts?: { saved?: boolean; filter?: string; search?: string; from?: string; to?: string; feed?: string }) => {
+  const loadStudies = useCallback(async (opts?: { saved?: boolean; filter?: string; search?: string; from?: string; to?: string; feed?: string; offset?: number }) => {
     const p = new URLSearchParams();
     if (opts?.saved) p.set('saved', 'true');
     if (opts?.filter && opts.filter !== 'Todos') p.set('filter', opts.filter);
@@ -122,9 +127,18 @@ function useAppState() {
     if (opts?.from) p.set('from', opts.from);
     if (opts?.to) p.set('to', opts.to);
     if (opts?.feed === 'gestao') p.set('feed', 'gestao');
-    const d = await getJSON<{ studies: StudyCard[] }>(`/api/studies?${p}`);
-    setStudies(d.studies);
+    const off = opts?.offset ?? 0;
+    p.set('limit', String(PAGE_STUDIES));
+    p.set('offset', String(off));
+    const d = await getJSON<{ studies: StudyCard[]; total: number }>(`/api/studies?${p}`);
+    setStudies((prev) => (off > 0 ? [...prev, ...d.studies] : d.studies)); // offset>0 anexa (carregar mais)
+    setStudiesTotal(d.total);
   }, []);
+  const loadMoreStudies = () => (
+    view === 'saved'
+      ? loadStudies({ saved: true, from: dateFrom, to: dateTo, offset: studies.length })
+      : loadStudies({ filter, search, feed, from: dateFrom, to: dateTo, offset: studies.length })
+  );
 
   const loadGestaoCategories = useCallback(async () => {
     const d = await getJSON<{ categories: CategoryT[] }>('/api/categories?feed=gestao');
@@ -136,15 +150,19 @@ function useAppState() {
     setTickets(d.tickets);
   }, []);
 
-  const loadHistory = useCallback(async (h: { q: string; requester: string; from: string; to: string }) => {
+  const loadHistory = useCallback(async (h: { q: string; requester: string; from: string; to: string }, offset = 0) => {
     const p = new URLSearchParams();
     if (h.q) p.set('q', h.q);
     if (h.requester) p.set('requester', h.requester);
     if (h.from) p.set('from', h.from);
     if (h.to) p.set('to', h.to);
-    const d = await getJSON<{ tickets: TicketCard[] }>(`/api/tickets/history?${p}`);
-    setHistoryTickets(d.tickets);
+    p.set('limit', String(PAGE_HISTORY));
+    p.set('offset', String(offset));
+    const d = await getJSON<{ tickets: TicketCard[]; total: number }>(`/api/tickets/history?${p}`);
+    setHistoryTickets((prev) => (offset > 0 ? [...prev, ...d.tickets] : d.tickets));
+    setHistoryTotal(d.total);
   }, []);
+  const loadMoreHistory = () => loadHistory(hist, historyTickets.length);
 
   const loadNotifications = useCallback(async () => {
     const d = await getJSON<{ notifications: NotifT[]; total: number }>(`/api/notifications?limit=${PAGE_NOTIF}&offset=0`);
@@ -224,6 +242,7 @@ function useAppState() {
   editingMessageRef.current = editingMessage;
   editingTicketRef.current = editingTicket;
   notifCountRef.current = notifications.length;
+  studiesCountRef.current = studies.length;
 
   // ---- polling em tempo real ----------------------------------------
   // Atualiza notificações/contadores sempre (10s); feed quando está no feed
@@ -240,10 +259,10 @@ function useAppState() {
     };
     // Sino + contadores (sempre que estiver na app)
     timers.push(setInterval(safe(refreshMe), 10000));
-    // Feed/salvos/gestão
-    if (view === 'feed') timers.push(setInterval(safe(() => loadStudies({ filter, search, from: dateFrom, to: dateTo })), 20000));
-    if (view === 'gestao') timers.push(setInterval(safe(() => loadStudies({ feed: 'gestao', filter, search, from: dateFrom, to: dateTo })), 20000));
-    if (view === 'saved') timers.push(setInterval(safe(() => loadStudies({ saved: true, from: dateFrom, to: dateTo })), 20000));
+    // Feed/salvos/gestão — só atualiza a 1ª página (não reseta quem clicou "carregar mais").
+    if (view === 'feed') timers.push(setInterval(safe(() => { if (studiesCountRef.current <= PAGE_STUDIES) loadStudies({ filter, search, from: dateFrom, to: dateTo }); }), 20000));
+    if (view === 'gestao') timers.push(setInterval(safe(() => { if (studiesCountRef.current <= PAGE_STUDIES) loadStudies({ feed: 'gestao', filter, search, from: dateFrom, to: dateTo }); }), 20000));
+    if (view === 'saved') timers.push(setInterval(safe(() => { if (studiesCountRef.current <= PAGE_STUDIES) loadStudies({ saved: true, from: dateFrom, to: dateTo }); }), 20000));
     // Estudo aberto (estudos ou gestão) → comentários novos
     if ((view === 'study' || view === 'gestaoStudy') && activeStudy?.id) {
       const id = activeStudy.id;
@@ -627,12 +646,12 @@ function useAppState() {
     view, feed,
     // estado base + setters
     me, theme, setTheme, nav, setNav, acting, setActing,
-    studies, setStudies, activeStudy, setActiveStudy, tickets, setTickets, activeTicket, setActiveTicket,
+    studies, setStudies, studiesTotal, activeStudy, setActiveStudy, tickets, setTickets, activeTicket, setActiveTicket,
     notifications, setNotifications, notifTotal, setNotifTotal,
     viewsModal, setViewsModal, auditModal, setAuditModal, readsModal, setReadsModal,
     editingTicket, setEditingTicket, editRef, setEditRef,
     filter, setFilter, search, setSearch, dateFrom, setDateFrom, dateTo, setDateTo,
-    ticketFilter, setTicketFilter, ticketTab, setTicketTab, historyTickets, setHistoryTickets, hist, setHist,
+    ticketFilter, setTicketFilter, ticketTab, setTicketTab, historyTickets, setHistoryTickets, historyTotal, hist, setHist,
     closing, setClosing, ratingHover, setRatingHover,
     videos, setVideos, videoTab, setVideoTab, videoFormOpen, setVideoFormOpen, editingVideo, setEditingVideo, syncingVideos, setSyncingVideos,
     compose, setCompose, coverUploading, setCoverUploading, embed, setEmbed, catManagerOpen, setCatManagerOpen,
@@ -643,7 +662,7 @@ function useAppState() {
     // derivados
     isConsultor, categories, catNames, colorOf, firstCat, openTicketCount, unseenTicketCount, unreadCount, savedCount,
     // loaders
-    refreshMe, loadStudies, loadTickets, loadHistory, loadNotifications, loadMoreNotifications, loadVideos, flashMsg,
+    refreshMe, loadStudies, loadMoreStudies, loadTickets, loadHistory, loadMoreHistory, loadNotifications, loadMoreNotifications, loadVideos, flashMsg,
     // handlers
     go, goFeed, goGestao, goSaved, goTickets, goNotifications, goProfile, goVideos, openStudy, openTicket,
     toggleLike, openViews, toggleSave, submitComment, publishStudy, startEditStudy, deleteStudy,

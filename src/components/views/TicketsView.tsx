@@ -9,7 +9,7 @@ import { TicketCardItem } from './TicketCardItem';
 import type { TicketCard } from '@/lib/types';
 
 export function TicketsView() {
-  const { setTicketTab, loadHistory, hist, setHist, ticketTab, isConsultor, startNewTicket, tickets, historyTickets, unseenTicketCount, markAllTicketsSeen } = useApp();
+  const { setTicketTab, loadHistory, loadMoreHistory, historyTotal, hist, setHist, ticketTab, isConsultor, startNewTicket, tickets, historyTickets, unseenTicketCount, markAllTicketsSeen } = useApp();
 
   // tickets já vem ordenado por updatedAt desc (mais atualizado por cima).
   const novos = tickets.filter((t) => t.status === 'aberto');
@@ -91,6 +91,11 @@ export function TicketsView() {
             {(hist.q || hist.requester || hist.from || hist.to) && <button onClick={() => { const empty = { q: '', requester: '', from: '', to: '' }; setHist(empty); loadHistory(empty); }} style={miniBtn}>Limpar</button>}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>{historyTickets.map((t) => <TicketCardItem key={t.id} t={t} />)}</div>
+          {historyTickets.length > 0 && historyTickets.length < historyTotal && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 20 }}>
+              <button onClick={loadMoreHistory} style={{ padding: '11px 22px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg2)', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>Carregar mais ({historyTotal - historyTickets.length})</button>
+            </div>
+          )}
           {historyTickets.length === 0 && (
             <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--fg3)' }}>
               <div className="font-grotesk" style={{ fontSize: 18, fontWeight: 700, color: 'var(--fg2)' }}>Nenhum chamado encontrado</div>
