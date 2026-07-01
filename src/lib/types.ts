@@ -18,7 +18,7 @@ export interface Me {
 export interface CategoryT { id: string; name: string; color: string }
 export interface Attachment { kind: string; name: string; meta: string | null; url: string | null }
 export interface StudyCard {
-  id: string; feed: string; title: string; category: string; excerpt: string; coverImage: string | null; readTime: string | null; createdAt: string;
+  id: string; feed: string; excludedDepartments?: string[]; title: string; category: string; excerpt: string; coverImage: string | null; readTime: string | null; createdAt: string;
   author: { name: string; title: string | null; avatar: string | null; department: string | null };
   likes: number; liked: boolean; saved: boolean; commentCount: number; attachments: Attachment[];
   views: number; viewed: boolean; openQuestion: boolean;

@@ -20,6 +20,12 @@ const PAGE_NOTIF = 20; // tamanho da página de notificações
 const PAGE_STUDIES = 12; // itens por página no feed de estudos/gestão
 const PAGE_HISTORY = 15; // itens por página no histórico de chamados
 
+// Estado inicial (e reset) do formulário de publicar. `excludedDepts` só é usado no
+// Feed de Gestão (departamentos ocultos da publicação).
+function blankCompose() {
+  return { title: '', category: '', body: '', linkInput: '', coverImage: null as string | null, links: [] as { url: string }[], excludedDepts: [] as string[] };
+}
+
 function useAppState() {
   const router = useRouter();
   const pathname = usePathname() || '/';
@@ -85,9 +91,10 @@ function useAppState() {
   const [editingVideo, setEditingVideo] = useState<VideoInput | undefined>(undefined);
   const [syncingVideos, setSyncingVideos] = useState(false);
 
-  const [compose, setCompose] = useState({ title: '', category: '', body: '', linkInput: '', coverImage: null as string | null, links: [] as { url: string }[] });
+  const [compose, setCompose] = useState(blankCompose());
   const [coverUploading, setCoverUploading] = useState(false);
   const [gestaoCategories, setGestaoCategories] = useState<CategoryT[]>([]); // categorias próprias do Feed de Gestão
+  const [gestaoDepartments, setGestaoDepartments] = useState<{ name: string; count: number }[]>([]); // deptos com Gestor/Sub (toggles de audiência)
   const [embed, setEmbed] = useState<{ url: string; kind: string; title: string } | null>(null);
   const [catManagerOpen, setCatManagerOpen] = useState(false);
   const [editingStudyId, setEditingStudyId] = useState<string | null>(null);
@@ -144,6 +151,11 @@ function useAppState() {
   const loadGestaoCategories = useCallback(async () => {
     const d = await getJSON<{ categories: CategoryT[] }>('/api/categories?feed=gestao');
     setGestaoCategories(d.categories);
+    // Departamentos com Gestor/Sub — alimentam os toggles de audiência da publicação.
+    try {
+      const dep = await getJSON<{ departments: { name: string; count: number }[] }>('/api/gestao/departments');
+      setGestaoDepartments(dep.departments);
+    } catch { /* sem acesso/erro: mantém a lista atual */ }
   }, []);
 
   const loadTickets = useCallback(async (status: string) => {
@@ -372,6 +384,8 @@ function useAppState() {
       coverImage: compose.coverImage,
       links: compose.links,
       feed,
+      // Audiência por departamento (só Feed de Gestão): deptos desmarcados = ocultos.
+      ...(isGestao ? { excludedDepartments: compose.excludedDepts } : {}),
     };
     if (editingStudyId) {
       await fetch(`/api/studies/${editingStudyId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -382,7 +396,7 @@ function useAppState() {
     }
     const wasEditing = editingStudyId;
     setEditingStudyId(null);
-    setCompose({ title: '', category: '', body: '', linkInput: '', coverImage: null, links: [] });
+    setCompose(blankCompose());
     if (wasEditing) openStudy(wasEditing, feed);
     else { setFilter('Todos'); setSearch(''); loadStudies({ filter: 'Todos', search: '', feed }); go(isGestao ? 'gestao' : 'feed'); }
   };
@@ -396,6 +410,7 @@ function useAppState() {
       linkInput: '',
       coverImage: s.coverImage,
       links: s.attachments.filter((a) => a.url).map((a) => ({ url: a.url as string })),
+      excludedDepts: s.excludedDepartments ?? [],
     });
     go(s.feed === 'gestao' ? 'gestaoCompose' : 'compose');
   };
@@ -501,7 +516,7 @@ function useAppState() {
   const cancelCompose = () => {
     const editing = editingStudyId;
     setEditingStudyId(null);
-    setCompose({ title: '', category: '', body: '', linkInput: '', coverImage: null, links: [] });
+    setCompose(blankCompose());
     if (editing) openStudy(editing, feed); else go(feed === 'gestao' ? 'gestao' : 'feed');
   };
   const startNewTicket = () => {
@@ -655,11 +670,11 @@ function useAppState() {
     // No Feed de Gestão todos publicam; fora dele segue a regra do feed de estudos.
     if (feed === 'gestao') {
       setEditingStudyId(null);
-      setCompose({ title: '', category: '', body: '', linkInput: '', coverImage: null, links: [] });
+      setCompose(blankCompose());
       go('gestaoCompose');
     } else if (isConsultor) {
       setEditingStudyId(null);
-      setCompose({ title: '', category: '', body: '', linkInput: '', coverImage: null, links: [] });
+      setCompose(blankCompose());
       go('compose');
     } else startNewTicket();
   };
@@ -694,7 +709,7 @@ function useAppState() {
     ticketFilter, setTicketFilter, ticketTab, setTicketTab, historyTickets, setHistoryTickets, historyTotal, hist, setHist,
     closing, setClosing, ratingHover, setRatingHover,
     videos, setVideos, videoTab, setVideoTab, videoFormOpen, setVideoFormOpen, editingVideo, setEditingVideo, syncingVideos, setSyncingVideos,
-    compose, setCompose, coverUploading, setCoverUploading, embed, setEmbed, catManagerOpen, setCatManagerOpen,
+    compose, setCompose, coverUploading, setCoverUploading, embed, setEmbed, catManagerOpen, setCatManagerOpen, gestaoDepartments,
     editingStudyId, setEditingStudyId, editingComment, setEditingComment, editingMessage, setEditingMessage,
     newTicket, setNewTicket, refQuery, setRefQuery, refResults, setRefResults, refSelected, setRefSelected, refSearching, setRefSearching,
     commentDraft, setCommentDraft, commentIsQuestion, setCommentIsQuestion, ticketDraft, setTicketDraft,

@@ -47,8 +47,13 @@ export function StudyCardEl({ s }: { s: StudyCard }) {
           </div>
           <div style={{ fontSize: 12.5, color: 'var(--fg3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{[s.author.title, timeAgo(s.createdAt), s.readTime && `${s.readTime} de leitura`].filter(Boolean).join(' · ')}</div>
         </div>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '6px 12px', borderRadius: 999, background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 12, fontWeight: 700, color: 'var(--fg2)' }}>
-          <span style={{ width: 7, height: 7, borderRadius: '50%', background: colorOf(s.category) }} />{s.category}
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          {s.feed === 'gestao' && (s.excludedDepartments?.length ?? 0) > 0 && (
+            <span title={`Não visível para: ${s.excludedDepartments!.join(', ')}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 11px', borderRadius: 999, background: 'rgba(196,125,16,0.14)', color: '#c47d10', fontSize: 11.5, fontWeight: 700 }}>🔒 Restrito</span>
+          )}
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '6px 12px', borderRadius: 999, background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 12, fontWeight: 700, color: 'var(--fg2)' }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: colorOf(s.category) }} />{s.category}
+          </span>
         </span>
       </header>
       <h3 onClick={() => openStudy(s.id, s.feed)} className="font-grotesk" style={{ fontSize: 21, fontWeight: 700, letterSpacing: '-0.015em', lineHeight: 1.25, margin: '0 0 9px', cursor: 'pointer' }}>{s.title}</h3>

@@ -59,6 +59,10 @@ export async function POST(req: NextRequest) {
   const readTime = `${Math.max(1, Math.round(bodyText.length / 800))} min`;
 
   const coverImage = typeof b?.coverImage === 'string' && b.coverImage.startsWith('data:image/') ? b.coverImage : null;
+  // Audiência por departamento (só Feed de Gestão): departamentos ocultos desta publicação.
+  const excludedDepartments = feed === 'gestao' && Array.isArray(b?.excludedDepartments)
+    ? b.excludedDepartments.map((d: unknown) => String(d).trim()).filter(Boolean)
+    : [];
 
   const attachments: { kind: string; name: string; meta?: string; url?: string }[] = [];
   // Links (YouTube / Drive / site) — tipo detectado no servidor.
@@ -74,6 +78,7 @@ export async function POST(req: NextRequest) {
     data: {
       authorId: me.user.id,
       feed,
+      excludedDepartments,
       category,
       title,
       body: paras.join('\n\n'),
@@ -94,6 +99,7 @@ export async function POST(req: NextRequest) {
       body: paras.join('\n\n'),
       category,
       authorAvatar: me.user.avatar, // foto de perfil do autor vira a imagem do comunicado
+      excludedDepartments, // não avisa Gestor/Sub dos deptos ocultos
     });
   } else {
     void notifyNexusAboutStudy({

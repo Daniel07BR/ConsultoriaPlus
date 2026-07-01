@@ -6,7 +6,7 @@
 import 'server-only';
 import { prisma } from './db';
 import { pushAnnouncementToNexus } from './nexus';
-import { canAccessGestao, effectiveRole } from './roles';
+import { canSeeGestaoStudy, effectiveRole } from './roles';
 
 function excerpt(body: string, max = 240): string {
   const first = (body.split('\n\n')[0] || '').trim();
@@ -20,6 +20,7 @@ interface NotifyInput {
   body: string;
   category: string;
   authorAvatar?: string | null; // foto de perfil do autor (data URI) — usada como imagem do comunicado
+  excludedDepartments?: string[]; // Feed de Gestão: deptos ocultos (Gestor/Sub não são avisados)
 }
 
 /**
@@ -68,13 +69,15 @@ export async function notifyNexusAboutStudy(input: NotifyInput): Promise<void> {
  */
 export async function notifyNexusAboutGestaoStudy(input: NotifyInput): Promise<void> {
   try {
-    // Destinatários = AppUsers ativos que passam no mesmo critério de canAccessGestao.
+    // Destinatários = AppUsers ativos que passam no mesmo critério de canAccessGestao,
+    // respeitando a segmentação por departamento: quem é Gestor/Sub de um depto oculto
+    // desta publicação NÃO é avisado (consultoria/diretoria/admin recebem sempre).
     const users = await prisma.appUser.findMany({
       where: { status: 'active' },
-      select: { nexusUserId: true, baseRole: true, roleOverride: true, cargo: true },
+      select: { nexusUserId: true, baseRole: true, roleOverride: true, cargo: true, department: true },
     });
     const recipientEmployeeIds = users
-      .filter((u) => canAccessGestao(effectiveRole(u.baseRole, u.roleOverride), u.cargo))
+      .filter((u) => canSeeGestaoStudy(effectiveRole(u.baseRole, u.roleOverride), u.cargo, u.department, input.excludedDepartments))
       .map((u) => u.nexusUserId)
       .filter((id): id is string => !!id);
 

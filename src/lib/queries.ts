@@ -1,6 +1,7 @@
 import 'server-only';
 import { prisma } from './db';
 import type { CurrentUser } from './auth';
+import { isDeptScopedGestao } from './roles';
 
 // ---------- Estudos ----------
 
@@ -21,6 +22,13 @@ export async function listStudies(
   } else {
     // Feed: separa estudos x gestão (o acesso ao feed de gestão é checado na rota).
     where.feed = opts.feed === 'gestao' ? 'gestao' : 'estudos';
+  }
+  // Segmentação por departamento (Feed de Gestão): Gestor/Sub só enxergam publicações
+  // que NÃO ocultam o seu departamento (o autor sempre vê o próprio post). Consultoria/
+  // diretoria/admin não são filtrados. Em estudos o campo é sempre vazio → sem efeito.
+  if (isDeptScopedGestao(me.role, me.user.cargo)) {
+    const dept = (me.user.department ?? '').trim();
+    where.AND = [{ OR: [{ authorId: me.user.id }, { NOT: { excludedDepartments: { has: dept } } }] }];
   }
   const created: Record<string, Date> = {};
   if (opts.from) created.gte = new Date(opts.from + 'T00:00:00');
@@ -117,6 +125,7 @@ export async function listStudies(
   const studies = rows.map((s) => ({
     id: s.id,
     feed: s.feed,
+    excludedDepartments: s.excludedDepartments,
     title: s.title,
     category: s.category,
     excerpt: excerptOf(s.body),
@@ -157,6 +166,8 @@ export async function getStudy(me: CurrentUser, id: string) {
   return {
     id: s.id,
     feed: s.feed,
+    authorId: s.authorId,
+    excludedDepartments: s.excludedDepartments,
     mine: s.authorId === me.user.id,
     title: s.title,
     category: s.category,

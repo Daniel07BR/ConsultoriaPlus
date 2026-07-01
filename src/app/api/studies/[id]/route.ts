@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireUser, ensureFeedAccess } from '@/lib/api';
+import { requireUser, ensureStudyAccess } from '@/lib/api';
 import { prisma } from '@/lib/db';
 import { getStudy } from '@/lib/queries';
 import { linkKind, linkLabel } from '@/lib/present';
@@ -12,7 +12,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params;
   const study = await getStudy(me, id);
   if (!study) return NextResponse.json({ error: 'não encontrado' }, { status: 404 });
-  const denied = ensureFeedAccess(me, study.feed);
+  const denied = ensureStudyAccess(me, study);
   if (denied) return denied;
   // Abrir o estudo baixa as notificações pendentes dele (auto-visto).
   await prisma.notification.updateMany({
@@ -27,9 +27,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (me instanceof NextResponse) return me;
   const { id } = await params;
 
-  const study = await prisma.study.findUnique({ where: { id }, select: { id: true, feed: true, authorId: true } });
+  const study = await prisma.study.findUnique({ where: { id }, select: { id: true, feed: true, authorId: true, excludedDepartments: true } });
   if (!study) return NextResponse.json({ error: 'não encontrado' }, { status: 404 });
-  const denied = ensureFeedAccess(me, study.feed);
+  const denied = ensureStudyAccess(me, study);
   if (denied) return denied;
   // Editar: estudos → consultor/admin; gestão → só o próprio autor.
   const canEdit = study.feed === 'gestao' ? study.authorId === me.user.id : me.canConsultor;
@@ -47,6 +47,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const paras = bodyText ? bodyText.split(/\n{1,}/).map((p: string) => p.trim()).filter(Boolean) : ['(sem conteúdo)'];
   const readTime = `${Math.max(1, Math.round(bodyText.length / 800))} min`;
   const coverImage = typeof b?.coverImage === 'string' && b.coverImage.startsWith('data:image/') ? b.coverImage : b?.coverImage === null ? null : undefined;
+  // Audiência por departamento (só Feed de Gestão): departamentos ocultos desta publicação.
+  const excludedDepartments = study.feed === 'gestao' && Array.isArray(b?.excludedDepartments)
+    ? b.excludedDepartments.map((d: unknown) => String(d).trim()).filter(Boolean)
+    : undefined;
 
   const links: { kind: string; name: string; url: string }[] = [];
   if (Array.isArray(b?.links)) {
@@ -60,7 +64,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   await prisma.$transaction([
     prisma.study.update({
       where: { id },
-      data: { title, category, body: paras.join('\n\n'), readTime, ...(coverImage !== undefined ? { coverImage } : {}) },
+      data: { title, category, body: paras.join('\n\n'), readTime, ...(coverImage !== undefined ? { coverImage } : {}), ...(excludedDepartments !== undefined ? { excludedDepartments } : {}) },
     }),
     prisma.studyAttachment.deleteMany({ where: { studyId: id } }),
     ...(links.length ? [prisma.studyAttachment.createMany({ data: links.map((l) => ({ ...l, studyId: id })) })] : []),
@@ -72,9 +76,9 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const me = await requireUser();
   if (me instanceof NextResponse) return me;
   const { id } = await params;
-  const study = await prisma.study.findUnique({ where: { id }, select: { id: true, feed: true, authorId: true } });
+  const study = await prisma.study.findUnique({ where: { id }, select: { id: true, feed: true, authorId: true, excludedDepartments: true } });
   if (!study) return NextResponse.json({ error: 'não encontrado' }, { status: 404 });
-  const denied = ensureFeedAccess(me, study.feed);
+  const denied = ensureStudyAccess(me, study);
   if (denied) return denied;
   // Excluir: estudos → consultor/admin; gestão → o próprio autor OU diretoria/admin (base_role 'both').
   const canDelete = study.feed === 'gestao'

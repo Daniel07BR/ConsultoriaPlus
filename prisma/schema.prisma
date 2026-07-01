@@ -109,6 +109,9 @@ model Study {
   authorId   String   @map("author_id")
   author     AppUser  @relation(fields: [authorId], references: [id])
   feed       String   @default("estudos") // estudos | gestao — separa o Feed de estudos do Feed de Gestão
+  /// Feed de Gestão: departamentos OCULTOS desta publicação. Vazio = todos veem.
+  /// O Gestor/Sub-encarregado de um depto listado aqui não recebe alerta nem visualiza.
+  excludedDepartments String[] @default([]) @map("excluded_departments")
   category   String
   title      String
   body       String // parágrafos separados por \n\n

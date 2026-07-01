@@ -66,6 +66,38 @@ export function canAccessGestao(role: AppRole, cargo?: string | null): boolean {
   return !!c && GESTAO_CARGOS.includes(c);
 }
 
+/**
+ * Acesso ao Feed de Gestão restrito ao PRÓPRIO departamento? (Gestor/Sub-encarregado
+ * que entram só via cargo). Estes são os únicos afetados pela segmentação por
+ * departamento de uma publicação. Consultoria/Diretoria/Admin (papel consultor|both)
+ * NÃO são restritos — veem tudo, independentemente dos departamentos ocultos.
+ */
+export function isDeptScopedGestao(role: AppRole, cargo?: string | null): boolean {
+  if (role === 'consultor' || role === 'both') return false;
+  const c = (cargo ?? '').trim().toLowerCase();
+  return !!c && GESTAO_CARGOS.includes(c);
+}
+
+/**
+ * Pode ver uma publicação de gestão, considerando os departamentos ocultos dela.
+ * Regra: precisa de acesso ao feed; se a publicação oculta o SEU departamento e você
+ * é Gestor/Sub (restrito por depto), não vê. Autor sempre vê o próprio post — trate
+ * isso na camada de rota (esta função não conhece o autor).
+ */
+export function canSeeGestaoStudy(
+  role: AppRole,
+  cargo: string | null | undefined,
+  department: string | null | undefined,
+  excludedDepartments: string[] | null | undefined,
+): boolean {
+  if (!canAccessGestao(role, cargo)) return false;
+  const excluded = (excludedDepartments ?? []).map((d) => d.trim().toLowerCase()).filter(Boolean);
+  if (excluded.length === 0) return true;
+  if (!isDeptScopedGestao(role, cargo)) return true; // consultoria/diretoria/admin veem tudo
+  const d = (department ?? '').trim().toLowerCase();
+  return !excluded.includes(d);
+}
+
 /** Pode alternar entre as duas visões? */
 export function canSwitchView(role: AppRole): boolean {
   return role === 'both';

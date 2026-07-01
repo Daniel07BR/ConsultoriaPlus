@@ -7,9 +7,19 @@ import { linkKind, linkLabel } from '@/lib/present';
 import { useApp } from '../AppProvider';
 
 export function ComposeView() {
-  const { compose, feed, firstCat, cancelCompose, editingStudyId, setCompose, coverUploading, uploadCover, setCatManagerOpen, catNames, addComposeLink, publishStudy } = useApp();
+  const { compose, feed, firstCat, cancelCompose, editingStudyId, setCompose, coverUploading, uploadCover, setCatManagerOpen, catNames, addComposeLink, publishStudy, gestaoDepartments } = useApp();
   const selectedCat = compose.category || firstCat;
   const isGestao = feed === 'gestao';
+  // Audiência por departamento (Feed de Gestão): um depto está OCULTO se estiver em
+  // compose.excludedDepts. Por padrão nenhum está oculto → todos os líderes recebem.
+  const excludedSet = new Set(compose.excludedDepts);
+  const toggleDept = (name: string) => setCompose((c) => {
+    const set = new Set(c.excludedDepts);
+    if (set.has(name)) set.delete(name); else set.add(name);
+    return { ...c, excludedDepts: [...set] };
+  });
+  const setAllDepts = (hidden: boolean) => setCompose((c) => ({ ...c, excludedDepts: hidden ? gestaoDepartments.map((d) => d.name) : [] }));
+  const hiddenNames = gestaoDepartments.filter((d) => excludedSet.has(d.name)).map((d) => d.name);
   const heading = editingStudyId
     ? (isGestao ? 'Editar publicação' : 'Editar estudo')
     : (isGestao ? 'Nova publicação de gestão' : 'Publicar novo estudo');
@@ -74,6 +84,60 @@ export function ComposeView() {
           </div>
           <select value={selectedCat} onChange={(e) => setCompose({ ...compose, category: e.target.value })} style={{ ...inputStyle(), cursor: 'pointer' }}>{catNames.map((c) => <option key={c} value={c}>{c}</option>)}</select>
         </div>
+
+        {/* Audiência por departamento — só no Feed de Gestão */}
+        {isGestao && (
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
+              <label style={{ ...labelStyle, marginBottom: 0 }}>Quem recebe <span style={{ fontWeight: 500, color: 'var(--fg3)' }}>(por departamento)</span></label>
+              {gestaoDepartments.length > 0 && (
+                <div style={{ display: 'inline-flex', gap: 6 }}>
+                  <button type="button" onClick={() => setAllDepts(false)} style={{ padding: '4px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--fg2)', fontWeight: 700, fontSize: 11.5, cursor: 'pointer' }}>Marcar todos</button>
+                  <button type="button" onClick={() => setAllDepts(true)} style={{ padding: '4px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--fg2)', fontWeight: 700, fontSize: 11.5, cursor: 'pointer' }}>Desmarcar todos</button>
+                </div>
+              )}
+            </div>
+            <div style={{ fontSize: 12.5, color: 'var(--fg3)', marginBottom: 12 }}>
+              Por padrão a publicação vai para <b>toda a liderança</b>. Desmarque um departamento para <b>ocultá-lo</b>: o Gestor e o Sub-encarregado daquele setor não recebem o alerta nem conseguem ver esta publicação. Diretoria, Consultoria e T.I sempre veem.
+            </div>
+            {gestaoDepartments.length === 0 ? (
+              <div style={{ fontSize: 13, color: 'var(--fg3)', padding: '12px 14px', borderRadius: 12, border: '1px dashed var(--border)', background: 'var(--surface2)' }}>
+                Nenhum departamento com Gestor/Sub-encarregado cadastrado — a publicação vai para toda a liderança.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9 }}>
+                {gestaoDepartments.map((d) => {
+                  const on = !excludedSet.has(d.name); // marcado = recebe
+                  return (
+                    <button
+                      key={d.name}
+                      type="button"
+                      onClick={() => toggleDept(d.name)}
+                      title={on ? 'Recebe esta publicação — clique para ocultar' : 'Oculto — clique para incluir'}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 13px', borderRadius: 999, cursor: 'pointer',
+                        border: on ? '1px solid var(--accent)' : '1px dashed var(--border)',
+                        background: on ? 'var(--accent-soft)' : 'var(--surface2)',
+                        color: on ? 'var(--accent)' : 'var(--fg3)',
+                        fontWeight: 700, fontSize: 13,
+                        textDecoration: on ? 'none' : 'line-through',
+                      }}
+                    >
+                      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 16, height: 16, borderRadius: 5, border: on ? 'none' : '1.5px solid var(--fg3)', background: on ? 'var(--accent)' : 'transparent', color: '#fff', fontSize: 11 }}>{on ? '✓' : ''}</span>
+                      {d.name}
+                      <span style={{ fontWeight: 600, fontSize: 11, opacity: 0.8 }}>{d.count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {hiddenNames.length > 0 && (
+              <div style={{ marginTop: 10, fontSize: 12.5, color: '#c47d10', fontWeight: 600 }}>
+                Oculto para: {hiddenNames.join(', ')}
+              </div>
+            )}
+          </div>
+        )}
 
         <Field label="Conteúdo"><textarea value={compose.body} onChange={(e) => setCompose({ ...compose, body: e.target.value })} rows={7} placeholder="Escreva o estudo aqui. Use parágrafos para organizar as ideias…" style={{ ...inputStyle(), lineHeight: 1.65 }} /></Field>
 

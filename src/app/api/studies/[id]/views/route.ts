@@ -1,7 +1,7 @@
 // GET  → lista quem viu o estudo, agrupado por departamento.
 // POST → marca o usuário logado como viu (joinha) — idempotente.
 import { NextResponse } from 'next/server';
-import { requireUser, ensureFeedAccess } from '@/lib/api';
+import { requireUser, ensureStudyAccess } from '@/lib/api';
 import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -11,9 +11,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   if (me instanceof NextResponse) return me;
   const { id } = await params;
 
-  const study = await prisma.study.findUnique({ where: { id }, select: { id: true, feed: true } });
+  const study = await prisma.study.findUnique({ where: { id }, select: { id: true, feed: true, authorId: true, excludedDepartments: true } });
   if (!study) return NextResponse.json({ error: 'estudo não encontrado' }, { status: 404 });
-  const denied = ensureFeedAccess(me, study.feed);
+  const denied = ensureStudyAccess(me, study);
   if (denied) return denied;
 
   await prisma.studyView.upsert({
@@ -31,9 +31,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   if (me instanceof NextResponse) return me;
   const { id } = await params;
 
-  const study = await prisma.study.findUnique({ where: { id }, select: { feed: true } });
+  const study = await prisma.study.findUnique({ where: { id }, select: { feed: true, authorId: true, excludedDepartments: true } });
   if (!study) return NextResponse.json({ error: 'estudo não encontrado' }, { status: 404 });
-  const denied = ensureFeedAccess(me, study.feed);
+  const denied = ensureStudyAccess(me, study);
   if (denied) return denied;
 
   const views = await prisma.studyView.findMany({

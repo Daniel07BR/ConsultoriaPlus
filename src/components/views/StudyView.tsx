@@ -47,7 +47,14 @@ export function StudyView() {
             <img src={s.coverImage} alt="" style={{ maxWidth: '100%', maxHeight: 360, objectFit: 'contain', borderRadius: 16, display: 'inline-block' }} />
           </div>
         )}
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '6px 13px', borderRadius: 999, background: 'var(--accent-soft)', fontSize: 12, fontWeight: 700, color: 'var(--accent)', marginBottom: 18 }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: colorOf(s.category) }} />{s.category}</span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 18 }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '6px 13px', borderRadius: 999, background: 'var(--accent-soft)', fontSize: 12, fontWeight: 700, color: 'var(--accent)' }}><span style={{ width: 7, height: 7, borderRadius: '50%', background: colorOf(s.category) }} />{s.category}</span>
+          {isGestao && (s.excludedDepartments?.length ?? 0) > 0 && (
+            <span title={`Não visível para: ${s.excludedDepartments!.join(', ')}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 13px', borderRadius: 999, background: 'rgba(196,125,16,0.14)', color: '#c47d10', fontSize: 12, fontWeight: 700 }}>
+              🔒 Restrito · oculto para {s.excludedDepartments!.length} {s.excludedDepartments!.length === 1 ? 'setor' : 'setores'}
+            </span>
+          )}
+        </span>
         <h1 className="font-grotesk" style={{ fontSize: 33, fontWeight: 700, letterSpacing: '-0.025em', lineHeight: 1.18, margin: '0 0 20px' }}>{s.title}</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingBottom: 24, marginBottom: 24, borderBottom: '1px solid var(--border)' }}>
           <Avatar name={s.author.name} avatar={s.author.avatar} size={46} role="consultor" />

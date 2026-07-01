@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireUser, resolveActingRole, ensureFeedAccess } from '@/lib/api';
+import { requireUser, resolveActingRole, ensureStudyAccess } from '@/lib/api';
 import { prisma } from '@/lib/db';
 import { notifyOnComment } from '@/lib/notify';
 
@@ -13,9 +13,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const text = (b?.text || '').trim();
   if (!text) return NextResponse.json({ error: 'texto obrigatório' }, { status: 400 });
 
-  const study = await prisma.study.findUnique({ where: { id }, select: { id: true, title: true, feed: true } });
+  const study = await prisma.study.findUnique({ where: { id }, select: { id: true, title: true, feed: true, authorId: true, excludedDepartments: true } });
   if (!study) return NextResponse.json({ error: 'não encontrado' }, { status: 404 });
-  const denied = ensureFeedAccess(me, study.feed);
+  const denied = ensureStudyAccess(me, study);
   if (denied) return denied;
 
   const role = resolveActingRole(me, b?.actingRole);
