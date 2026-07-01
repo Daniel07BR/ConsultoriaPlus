@@ -51,9 +51,14 @@ export async function notifyOnComment(
   // Feed de Gestão: sem papel consultor/cliente — qualquer comentário apenas
   // avisa o autor da publicação.
   if (feed === 'gestao') {
+    // Feed de Gestão: sem pool de consultores. Comentário OU pergunta na publicação
+    // alerta o AUTOR dela, distinguindo pergunta (âmbar) de comentário (azul) —
+    // igual ao inbox do feed de estudos. Não se autonotifica.
     if (study.authorId !== commenter.id) {
       await prisma.notification.create({
-        data: { userId: study.authorId, kind: 'estudo', title: commenter.name, body: `comentou na sua publicação "${study.title}".`, ...t },
+        data: isQuestion
+          ? { userId: study.authorId, kind: 'pergunta', title: commenter.name, body: `fez uma pergunta na sua publicação "${study.title}".`, ...t }
+          : { userId: study.authorId, kind: 'estudo', title: commenter.name, body: `comentou na sua publicação "${study.title}".`, ...t },
       });
     }
     return;
