@@ -5,10 +5,10 @@ import Avatar from '../Avatar';
 import { Hearts } from '../ui/Hearts';
 import {
   IconArrowLeft, IconRefresh, IconEdit, IconTicket, IconSearch, IconCheck, IconLink,
-  IconArrowRight, IconX, IconCheckDouble, IconSend, IconHeart,
+  IconArrowRight, IconX, IconCheckDouble, IconSend, IconHeart, IconUsers,
 } from '../icons';
 import { labelStyle, inputStyle, miniBtn, ticketNumChip } from '../ui/formKit';
-import { statusMeta, timeAgo, RATING_LABELS } from '@/lib/present';
+import { statusMeta, timeAgo, RATING_LABELS, consultorColor } from '@/lib/present';
 import { useApp } from '../AppProvider';
 import { Linkify } from './Linkify';
 
@@ -19,11 +19,12 @@ export function TicketView() {
     activeTicket, goTickets, me, openAudit, colorOf, editingTicket, setEditingTicket, startEditTicket,
     editRef, setEditRef, refQuery, searchRefTickets, refSearching, refResults, pickEditRef, cancelEditTicket, saveTicketEdit,
     openTicket, editingMessage, setEditingMessage, deleteMessage, saveMessage, setReadsModal,
-    closing, setClosing, ratingHover, setRatingHover, closeTicket, ticketDraft, setTicketDraft, sendTicketReply, isConsultor, ticketInputRef,
+    closing, setClosing, ratingHover, setRatingHover, closeTicket, ticketDraft, setTicketDraft, sendTicketReply, isConsultor, ticketInputRef, assumirTicket,
   } = useApp();
   const t = activeTicket;
   if (!t) return <div style={{ paddingTop: 60, textAlign: 'center', color: 'var(--fg3)' }}>Carregando chamado…</div>;
   const sm = statusMeta(t.status);
+  const assigneeColor = t.assignee ? consultorColor(t.assignee.name) : null;
   return (
     <div style={{ paddingTop: 28, animation: 'cpFade .35s ease' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
@@ -107,6 +108,35 @@ export function TicketView() {
           </>
         )}
       </div>
+      {/* Responsável pelo atendimento ("Assumir o chamado") — aponta quem está atendendo,
+          mesmo sem resposta. Consultor assume/libera; cliente vê só quem está atendendo. */}
+      {t.status !== 'fechado' && (t.assignee || t.canAssign) && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', background: 'var(--surface)', border: `1px solid ${assigneeColor ? assigneeColor + '55' : 'var(--border)'}`, borderRadius: 16, padding: '13px 18px', marginBottom: 18, boxShadow: assigneeColor ? `0 0 0 1px ${assigneeColor}33` : '0 1px 3px var(--shadow)' }}>
+          {t.assignee ? (
+            <>
+              <Avatar name={t.assignee.name} avatar={t.assignee.avatar} size={36} role="consultor" />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '.04em', textTransform: 'uppercase', color: 'var(--fg3)' }}>Em atendimento</div>
+                <div style={{ fontWeight: 700, fontSize: 14.5, color: assigneeColor ?? 'var(--fg)' }}>{t.assignee.name}{t.assignedToMe ? ' · você' : ''}</div>
+              </div>
+              {t.canAssign && (t.assignedToMe ? (
+                <button onClick={() => assumirTicket(true)} title="Deixar de ser o responsável por este chamado" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 11, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--fg2)', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}><IconX size={14} sw={2.4} /> Liberar</button>
+              ) : (
+                <button onClick={() => assumirTicket(false)} title="Assumir este chamado para você" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '9px 16px', borderRadius: 11, border: '1px solid var(--accent)', background: 'var(--accent-soft)', color: 'var(--accent)', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: "'Space Grotesk',sans-serif" }}><IconCheck size={15} sw={2.4} /> Assumir para mim</button>
+              ))}
+            </>
+          ) : (
+            <>
+              <span style={{ width: 36, height: 36, borderRadius: '50%', border: '2px dashed var(--border)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--fg3)', flexShrink: 0 }}><IconUsers size={17} /></span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--fg)' }}>Ninguém assumiu este chamado ainda</div>
+                <div style={{ fontSize: 12.5, color: 'var(--fg3)' }}>Assuma para sinalizar às demais consultoras que você está atendendo.</div>
+              </div>
+              <button onClick={() => assumirTicket(false)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 20px', borderRadius: 12, border: 'none', background: 'var(--accent)', color: '#fff', fontFamily: "'Space Grotesk',sans-serif", fontWeight: 700, fontSize: 13.5, cursor: 'pointer' }}><IconCheck size={16} sw={2.4} /> Assumir o chamado</button>
+            </>
+          )}
+        </div>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 18 }}>
         {t.messages.map((m) => { const right = m.role === 'consultor'; const isC = m.role === 'consultor'; const del = m.deleted; const canDel = m.mine || (me.canConsultor && m.role === 'consultor'); return (
           <div key={m.id} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', flexDirection: right ? 'row-reverse' : 'row' }}>

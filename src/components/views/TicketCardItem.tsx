@@ -17,9 +17,11 @@ export function TicketCardItem({ t }: { t: TicketCard }) {
   const isNew = t.status === 'aberto' && hasUnseen;
   const hi = isNew ? '#16a34a' : 'var(--accent)';
   const hiSoft = isNew ? 'rgba(22,163,74,0.20)' : 'var(--accent-soft)';
-  // Consultor que está respondendo: a cor dele vira um realce/sombra colorido nas
-  // bordas do card (o fundo continua branco). Marina rosé, Edilaine teal.
-  const rc = t.responder ? consultorColor(t.responder.name) : null;
+  // Quem está atendendo: o responsável que ASSUMIU tem prioridade (aponta mesmo sem
+  // resposta); se ninguém assumiu, cai no último consultor que respondeu. A cor dele
+  // vira um realce/sombra colorido nas bordas do card. Marina rosé, Edilaine teal.
+  const handler = t.assignee ?? t.responder;
+  const rc = handler ? consultorColor(handler.name) : null;
   const border = rc ? `${rc}66` : (hasUnseen ? hi : 'var(--border)');
   const shadow = rc
     ? `0 0 0 1px ${rc}66, 0 6px 20px ${rc}33`
@@ -30,9 +32,9 @@ export function TicketCardItem({ t }: { t: TicketCard }) {
         {/* Foto de quem abriu + foto do consultor sobreposta no canto inferior direito. */}
         <div style={{ position: 'relative', flexShrink: 0 }}>
           <Avatar name={t.author.name} avatar={t.author.avatar} size={44} role="cliente" />
-          {t.responder && rc && (
-            <span title={`Atendido por ${t.responder.name}`} style={{ position: 'absolute', right: -6, bottom: -6, borderRadius: '50%', padding: 2, background: 'var(--surface)', boxShadow: `0 0 0 2px ${rc}`, display: 'inline-flex', lineHeight: 0 }}>
-              <Avatar name={t.responder.name} avatar={t.responder.avatar} size={24} role="consultor" />
+          {handler && rc && (
+            <span title={t.assignee ? `Atendendo: ${handler.name}` : `Atendido por ${handler.name}`} style={{ position: 'absolute', right: -6, bottom: -6, borderRadius: '50%', padding: 2, background: 'var(--surface)', boxShadow: `0 0 0 2px ${rc}`, display: 'inline-flex', lineHeight: 0 }}>
+              <Avatar name={handler.name} avatar={handler.avatar} size={24} role="consultor" />
             </span>
           )}
         </div>
@@ -40,6 +42,7 @@ export function TicketCardItem({ t }: { t: TicketCard }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span style={{ fontWeight: 700, fontSize: 14.5, whiteSpace: 'nowrap' }}>{t.author.name}</span>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '2px 10px', borderRadius: 999, background: sm.tint, color: sm.text, fontSize: 10.5, fontWeight: 700, letterSpacing: '.03em', whiteSpace: 'nowrap' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: sm.dot }} />{sm.label}</span>
+            {t.status !== 'fechado' && t.assignee && rc && <span title={`Em atendimento por ${t.assignee.name}`} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '2px 10px', borderRadius: 999, background: `${rc}1f`, color: rc, fontSize: 10.5, fontWeight: 700, letterSpacing: '.02em', whiteSpace: 'nowrap' }}><span style={{ width: 6, height: 6, borderRadius: '50%', background: rc }} />Atendendo · {t.assignee.name.split(' ')[0]}</span>}
             {t.status === 'fechado' && t.rating && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 700, color: 'var(--accent)' }}><Hearts n={t.rating} size={13} /> {t.ratingLabel}</span>}
           </div>
           <div style={{ fontSize: 12.5, color: 'var(--fg3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Cliente · {timeAgo(t.createdAt)} · {t.msgCount} {t.msgCount === 1 ? 'mensagem' : 'mensagens'}</div>

@@ -529,6 +529,15 @@ function useAppState() {
     setActiveTicket(d.ticket);
     if (view === 'tickets') loadTickets(ticketFilter);
   };
+  // Assumir / liberar o chamado (consultor responsável). Reaponta quem está atendendo.
+  const assumirTicket = async (release = false) => {
+    if (!activeTicket) return;
+    await postJSON(`/api/tickets/${activeTicket.id}/assign`, { release, actingRole: acting });
+    flashMsg(release ? 'Chamado liberado' : 'Você assumiu o chamado');
+    const d = await getJSON<{ ticket: TicketDetailT }>(`/api/tickets/${activeTicket.id}`);
+    setActiveTicket(d.ticket);
+    if (view === 'tickets') loadTickets(ticketFilter);
+  };
   const submitTicket = async () => {
     if (!newTicket.subject.trim()) { flashMsg('Informe o assunto do chamado'); return; }
     const r = await postJSON<{ id: string }>('/api/tickets', { ...newTicket, category: newTicket.category || firstCat });
@@ -669,7 +678,7 @@ function useAppState() {
     saveComment, deleteComment, saveMessage, deleteMessage, openAudit, uploadCover, addComposeLink,
     createCategory, updateCategory, deleteCategory, openLink, cancelCompose, startNewTicket,
     searchRefTickets, selectRefTicket, startEditTicket, cancelEditTicket, pickEditRef, saveTicketEdit,
-    submitTicket, sendTicketReply, closeTicket, saveVideo, deleteVideo, playVideo, toggleWatched,
+    submitTicket, sendTicketReply, closeTicket, assumirTicket, saveVideo, deleteVideo, playVideo, toggleWatched,
     reclassifyVideo, syncVideos, openNotif, markAllRead, markAllTicketsSeen, logout, onPrimary,
   };
 }

@@ -23,8 +23,9 @@ export function AuditModal() {
           {auditModal.items && auditModal.items.length === 0 && <div style={{ color: 'var(--fg3)', fontSize: 14, textAlign: 'center', padding: '24px 0' }}>Nenhuma alteração registrada neste chamado.</div>}
           {auditModal.items?.map((it) => {
             const isDel = it.action === 'delete';
-            const badge = isDel ? 'EXCLUSÃO' : it.action === 'title' ? 'TÍTULO' : it.action === 'reference' ? 'CITAÇÃO' : 'EDIÇÃO';
-            const scope = it.action === 'title' ? 'Título do chamado' : it.action === 'reference' ? 'Chamado citado' : null;
+            const isAssign = it.action === 'assign' || it.action === 'unassign';
+            const badge = isDel ? 'EXCLUSÃO' : it.action === 'title' ? 'TÍTULO' : it.action === 'reference' ? 'CITAÇÃO' : it.action === 'assign' ? 'ASSUMIU' : it.action === 'unassign' ? 'LIBEROU' : 'EDIÇÃO';
+            const scope = it.action === 'title' ? 'Título do chamado' : it.action === 'reference' ? 'Chamado citado' : isAssign ? 'Responsável pelo atendimento' : null;
             return (
               <div key={it.id} style={{ border: '1px solid var(--border)', borderRadius: 14, padding: '14px 16px', background: 'var(--surface2)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>

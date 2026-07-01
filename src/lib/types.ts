@@ -33,6 +33,7 @@ export interface TicketCard {
   id: string; number: number; subject: string; category: string; status: string; rating: number | null; ratingLabel: string | null; createdAt: string;
   author: { name: string; avatar: string | null; department: string | null };
   responder: { name: string; avatar: string | null } | null; // consultor que está respondendo
+  assignee: { name: string; avatar: string | null } | null; // consultor que assumiu o chamado
   msgCount: number; lastPreview: string; unseen: number;
 }
 export interface ReadReceiptT { name: string; avatar: string | null; role: string; readAt: string }
@@ -48,6 +49,8 @@ export interface TicketDetailT {
   rating: number | null; ratingLabel: string | null; closedAt: string | null;
   reference: { id: string; number: number; subject: string } | null;
   canReply: boolean; canClose: boolean; canEdit: boolean; auditCount: number;
+  assignee: { id: string; name: string; avatar: string | null } | null; // consultor que assumiu
+  canAssign: boolean; assignedToMe: boolean;
   author: { name: string; avatar: string | null; department: string | null }; messages: MessageT[];
 }
 export interface NotifT { id: string; kind: string; title: string; body: string; targetType: string | null; targetId: string | null; read: boolean; createdAt: string }

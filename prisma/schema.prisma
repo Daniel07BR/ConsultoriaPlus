@@ -36,6 +36,7 @@ model AppUser {
   likes         StudyLike[]
   saves         StudySave[]
   tickets       Ticket[]        @relation("requester")
+  assignedTickets Ticket[]      @relation("assignee") // chamados que este consultor assumiu
   messages      TicketMessage[]
   notifications Notification[]
   videos        Video[]
@@ -203,6 +204,11 @@ model Ticket {
   subject     String
   category    String
   status      String    @default("aberto") // aberto|andamento|respondido|fechado
+  // Consultor responsável ("assumiu o chamado"): aponta quem está atendendo mesmo
+  // antes de qualquer resposta. Independente do status. SetNull se o consultor sair.
+  assigneeId  String?   @map("assignee_id")
+  assignee    AppUser?  @relation("assignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  assignedAt  DateTime? @map("assigned_at")
   rating      Int? // 1..5 (avaliação do cliente ao fechar)
   ratingLabel String?   @map("rating_label")
   closedAt    DateTime? @map("closed_at")
@@ -217,6 +223,7 @@ model Ticket {
 
   @@index([status])
   @@index([createdAt])
+  @@index([assigneeId])
   @@map("tickets")
 }
 

@@ -137,6 +137,7 @@ function ticketScope(me: CurrentUser): Record<string, unknown> {
 function ticketSummary(t: {
   id: string; number: number; subject: string; category: string; status: string; rating: number | null; ratingLabel: string | null;
   createdAt: Date; requester: { name: string; avatar: string | null; department?: string | null };
+  assignee?: { name: string; avatar: string | null } | null;
   messages: { text: string; authorId: string; role: string; deletedAt: Date | null; author: { name: string; avatar: string | null }; reads: { userId: string }[] }[];
 }, meId: string) {
   const last = t.messages[t.messages.length - 1];
@@ -147,6 +148,8 @@ function ticketSummary(t: {
   const consultorMsgs = t.messages.filter((m) => !m.deletedAt && m.role === 'consultor');
   const lastConsultor = consultorMsgs[consultorMsgs.length - 1];
   const responder = lastConsultor ? { name: lastConsultor.author.name, avatar: lastConsultor.author.avatar } : null;
+  // Responsável ("assumiu o chamado"): quem está atendendo, mesmo sem ter respondido.
+  const assignee = t.assignee ? { name: t.assignee.name, avatar: t.assignee.avatar } : null;
   return {
     id: t.id,
     number: t.number,
@@ -158,6 +161,7 @@ function ticketSummary(t: {
     createdAt: t.createdAt.toISOString(),
     author: { name: t.requester.name, avatar: t.requester.avatar, department: (t.requester as { department?: string | null }).department ?? null },
     responder,
+    assignee,
     msgCount: t.messages.length,
     lastPreview: last ? (last.text.length > 150 ? last.text.slice(0, 150).trim() + '…' : last.text) : '',
     unseen,
@@ -172,7 +176,7 @@ export async function listTickets(me: CurrentUser, status?: string) {
   const tickets = await prisma.ticket.findMany({
     where,
     orderBy: { updatedAt: 'desc' },
-    include: { requester: { select: { name: true, avatar: true, department: true } }, messages: { orderBy: { createdAt: 'asc' }, select: { text: true, authorId: true, role: true, deletedAt: true, author: { select: { name: true, avatar: true } }, reads: { where: { userId: me.user.id }, select: { userId: true } } } } },
+    include: { requester: { select: { name: true, avatar: true, department: true } }, assignee: { select: { name: true, avatar: true } }, messages: { orderBy: { createdAt: 'asc' }, select: { text: true, authorId: true, role: true, deletedAt: true, author: { select: { name: true, avatar: true } }, reads: { where: { userId: me.user.id }, select: { userId: true } } } } },
   });
   return tickets.map((t) => ticketSummary(t, me.user.id));
 }
@@ -206,7 +210,7 @@ export async function listTicketsHistory(
       orderBy: { createdAt: 'desc' },
       skip: offset,
       take: limit,
-      include: { requester: { select: { name: true, avatar: true, department: true } }, messages: { orderBy: { createdAt: 'asc' }, select: { text: true, authorId: true, role: true, deletedAt: true, author: { select: { name: true, avatar: true } }, reads: { where: { userId: me.user.id }, select: { userId: true } } } } },
+      include: { requester: { select: { name: true, avatar: true, department: true } }, assignee: { select: { name: true, avatar: true } }, messages: { orderBy: { createdAt: 'asc' }, select: { text: true, authorId: true, role: true, deletedAt: true, author: { select: { name: true, avatar: true } }, reads: { where: { userId: me.user.id }, select: { userId: true } } } } },
     }),
   ]);
   return { tickets: tickets.map((t) => ticketSummary(t, me.user.id)), total };
@@ -217,6 +221,7 @@ export async function getTicket(me: CurrentUser, id: string) {
     where: { id },
     include: {
       requester: { select: { id: true, name: true, avatar: true, department: true } },
+      assignee: { select: { id: true, name: true, avatar: true } },
       reference: { select: { id: true, number: true, subject: true } },
       messages: {
         orderBy: { createdAt: 'asc' },
@@ -244,10 +249,14 @@ export async function getTicket(me: CurrentUser, id: string) {
     closedAt: t.closedAt ? t.closedAt.toISOString() : null,
     createdAt: t.createdAt.toISOString(),
     author: { name: t.requester.name, avatar: t.requester.avatar, department: (t.requester as { department?: string | null }).department ?? null },
+    // Consultor que assumiu o chamado (está atendendo), independente de já ter respondido.
+    assignee: t.assignee ? { id: t.assignee.id, name: t.assignee.name, avatar: t.assignee.avatar } : null,
     // Responder: dono ou consultor, e não fechado. Avaliar/fechar: só o dono, se ainda não fechou.
     canReply: (isOwner || me.canConsultor) && !isClosed,
     canClose: isOwner && !isClosed,
     canEdit: (isOwner || me.canConsultor) && !isClosed, // editar título / citação
+    canAssign: me.canConsultor && !isClosed, // pode assumir/liberar o chamado
+    assignedToMe: t.assigneeId === me.user.id, // o responsável sou eu
     auditCount, // só interessa ao consultor; controla o botão Auditoria no client
     messages: t.messages.map((m) => {
       const deleted = !!m.deletedAt;
