@@ -155,12 +155,14 @@ function useAppState() {
   }, []);
 
   // Departamentos (toggles de audiência) do feed corrente + os desativados por padrão.
+  // Retorna os dados (além de setar o estado) p/ quem precisa deles na hora (ex.: onPrimary).
   const loadFeedDepartments = useCallback(async (f: string) => {
     try {
       const dep = await getJSON<{ departments: { name: string; count: number }[]; defaultExcluded: string[] }>(`/api/feed-departments?feed=${f === 'gestao' ? 'gestao' : 'estudos'}`);
       setFeedDepartments(dep.departments);
       setFeedDefaultExcluded(dep.defaultExcluded || []);
-    } catch { /* sem permissão/erro: mantém a lista atual */ }
+      return dep;
+    } catch { /* sem permissão/erro: mantém a lista atual */ return null; }
   }, []);
 
   const loadTickets = useCallback(async (status: string) => {
@@ -673,7 +675,7 @@ function useAppState() {
   };
   const markAllRead = async () => { await postJSON('/api/notifications/read-all'); setNotifications((ns) => ns.map((x) => ({ ...x, read: true }))); flashMsg('Todas marcadas como lidas'); refreshMe(); };
   const logout = async () => { await postJSON('/api/logout'); window.location.href = '/login'; };
-  const onPrimary = () => {
+  const onPrimary = async () => {
     // No Feed de Gestão todos publicam; fora dele segue a regra do feed de estudos.
     if (feed === 'gestao') {
       setEditingStudyId(null);
@@ -681,8 +683,10 @@ function useAppState() {
       go('gestaoCompose');
     } else if (isConsultor) {
       setEditingStudyId(null);
-      // Feed de estudos: alguns setores já vêm DESATIVADOS por padrão (o consultor ativa se quiser).
-      setCompose({ ...blankCompose(), excludedDepts: feedDefaultExcluded });
+      // Feed de estudos: alguns setores já vêm DESATIVADOS por padrão (o consultor ativa se
+      // quiser). Busca a lista na hora p/ garantir os defaults mesmo se o feed ainda não carregou.
+      const dep = await loadFeedDepartments('estudos');
+      setCompose({ ...blankCompose(), excludedDepts: dep?.defaultExcluded ?? feedDefaultExcluded });
       go('compose');
     } else startNewTicket();
   };
