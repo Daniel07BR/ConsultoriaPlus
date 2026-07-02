@@ -34,6 +34,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     void notifyNexusStudyAnswer({
       studyId: id,
       studyTitle: study.title,
+      feed: study.feed,
       answererNexusUserId: me.user.nexusUserId,
       answererAppUserId: me.user.id,
       answererName: me.user.name,

@@ -13,6 +13,14 @@ function excerpt(body: string, max = 240): string {
   return first.length > max ? first.slice(0, max).trim() + '…' : first;
 }
 
+// URL absoluta desta app (deep-link enviado no comunicado). O Nexus usa como
+// destino do "via Consultoria Plus" e do botão de acesso. Sem APP_URL → undefined
+// (o Nexus cai no /sso → home).
+function cpUrl(path: string): string | undefined {
+  const base = process.env.APP_URL;
+  return base ? `${base.replace(/\/$/, '')}${path}` : undefined;
+}
+
 interface NotifyInput {
   studyId: string;
   authorNexusUserId: string; // employeeId Nexus do autor
@@ -126,6 +134,7 @@ async function nexusIdsOf(appUserIds: string[]): Promise<string[]> {
 export async function notifyNexusStudyAnswer(opts: {
   studyId: string;
   studyTitle: string;
+  feed: string; // 'estudos' | 'gestao' — define a rota do deep-link
   answererNexusUserId: string;
   answererAppUserId: string;
   answererName: string;
@@ -151,6 +160,8 @@ export async function notifyNexusStudyAnswer(opts: {
       category: 'Resposta',
       recipientEmployeeIds,
       sourceRef: `answer-${opts.commentId}`,
+      linkUrl: cpUrl(`/${opts.feed === 'gestao' ? 'gestao' : 'estudos'}/${opts.studyId}`),
+      linkLabel: 'Abrir a publicação',
       crossSystem: true,
     });
   } catch (err) {
@@ -242,6 +253,8 @@ export async function notifyNexusTicketReply(opts: {
       category: 'Chamado',
       recipientEmployeeIds,
       sourceRef: `ticketmsg-${opts.messageId}`,
+      linkUrl: cpUrl(`/chamados/${opts.ticketId}`),
+      linkLabel: 'Abrir o chamado',
       crossSystem: true,
     });
   } catch (err) {
