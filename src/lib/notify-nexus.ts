@@ -53,7 +53,7 @@ export async function notifyNexusAboutStudy(input: NotifyInput): Promise<void> {
     // em si é acessado pelo histórico de comunicados ou pelo próprio sistema.
     const res = await pushAnnouncementToNexus({
       authorEmployeeId: input.authorNexusUserId,
-      title: `Novo estudo: ${input.title}`,
+      title: input.title, // sem prefixo "Novo estudo:" — o comunicado já é o estudo novo
       content: excerpt(input.body),
       type: 'consultoria-plus',
       category: input.category,
