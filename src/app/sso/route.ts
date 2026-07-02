@@ -12,6 +12,21 @@ function base(): string {
   return process.env.APP_URL || 'http://localhost:3000';
 }
 
+// Destino pós-login: honra ?redirect=<url|path> vindo do Nexus (deep-link p/ a
+// publicação específica), mas SÓ do mesmo host do APP_URL — evita open redirect.
+// Sem redirect válido, cai na home ('/').
+function destination(req: NextRequest): URL {
+  const home = new URL('/', base());
+  const target = req.nextUrl.searchParams.get('redirect');
+  if (target) {
+    try {
+      const dest = new URL(target, home); // aceita caminho relativo ou URL absoluta
+      if (dest.origin === home.origin) return dest;
+    } catch { /* target inválido → home */ }
+  }
+  return home;
+}
+
 export async function GET(req: NextRequest) {
   const ticket = req.nextUrl.searchParams.get('nexus_ticket');
 
@@ -55,5 +70,5 @@ export async function GET(req: NextRequest) {
   });
 
   await createSession({ uid: appUser.id, nexusUserId: appUser.nexusUserId, name: appUser.name });
-  return NextResponse.redirect(new URL('/', base()));
+  return NextResponse.redirect(destination(req));
 }
