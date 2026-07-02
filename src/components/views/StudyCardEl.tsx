@@ -1,7 +1,7 @@
 'use client';
 // Card de estudo no feed/salvos. Extraído de AppClient (Fase 2).
 import Avatar from '../Avatar';
-import { IconThumbsUp, IconComment, IconBookmark, IconArrowRight } from '../icons';
+import { IconEye, IconComment, IconBookmark, IconArrowRight } from '../icons';
 import { attIcon } from '../ui/attIcon';
 import { LikesHoverButton } from '../ui/LikesHoverButton';
 import { timeAgo, consultorColor } from '@/lib/present';
@@ -69,8 +69,8 @@ export function StudyCardEl({ s }: { s: StudyCard }) {
       )}
       <footer style={{ display: 'flex', alignItems: 'center', gap: 6, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
         <LikesHoverButton studyId={s.id} count={s.likes} liked={s.liked} onToggle={() => toggleLike(s.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 12px', borderRadius: 10, border: 'none', background: 'transparent', cursor: 'pointer', fontWeight: 700, fontSize: 13.5, color: s.liked ? 'var(--accent)' : 'var(--fg2)' }} />
-        <button onClick={() => openViews(s.id, s.title)} title="Marcar como visualizado e ver quem viu" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 12px', borderRadius: 10, border: 'none', background: 'transparent', cursor: 'pointer', fontWeight: 700, fontSize: 13.5, color: s.viewed ? 'var(--accent)' : 'var(--fg2)' }}>
-          <IconThumbsUp size={18} fill={s.viewed ? 'var(--accent)' : 'none'} stroke={s.viewed ? 'var(--accent)' : 'currentColor'} />{s.views}
+        <button onClick={() => openViews(s.id, s.title)} title="Ver quem visualizou o comunicado desta publicação no Nexus" style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 12px', borderRadius: 10, border: 'none', background: 'transparent', cursor: 'pointer', fontWeight: 700, fontSize: 13.5, color: s.viewed ? 'var(--accent)' : 'var(--fg2)' }}>
+          <IconEye size={18} stroke={s.viewed ? 'var(--accent)' : 'currentColor'} />{s.views}
         </button>
         <button onClick={() => openStudy(s.id, s.feed)} title={openQ ? 'Tem pergunta em aberto — clique para responder' : undefined} style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 12px', borderRadius: 10, border: 'none', background: openQ ? 'rgba(245,166,35,0.16)' : 'transparent', cursor: 'pointer', fontWeight: 700, fontSize: 13.5, color: openQ ? '#c47d10' : 'var(--fg2)' }}>
           <span className={openQ ? 'cp-alert-pulse' : undefined} style={{ display: 'inline-flex' }}><IconComment size={18} stroke={openQ ? '#f5a623' : 'currentColor'} /></span>{s.commentCount}

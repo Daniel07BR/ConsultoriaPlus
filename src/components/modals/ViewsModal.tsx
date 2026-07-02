@@ -1,7 +1,8 @@
 'use client';
-// Modal "Quem visualizou o estudo" (joinha). Extraído de AppClient (Fase 2).
+// Modal "Quem visualizou": lista de quem deu ciência (visualizou) no comunicado
+// desta publicação no Nexus. Extraído de AppClient (Fase 2).
 import Avatar from '../Avatar';
-import { IconThumbsUp, IconX } from '../icons';
+import { IconEye, IconX } from '../icons';
 import { timeAgo } from '@/lib/present';
 import { useApp } from '../AppProvider';
 
@@ -20,7 +21,7 @@ export function ViewsModal() {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '18px 22px', borderBottom: '1px solid var(--border)' }}>
           <div style={{ width: 40, height: 40, borderRadius: 12, background: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent)' }}>
-            <IconThumbsUp size={22} fill="var(--accent)" stroke="var(--accent)" />
+            <IconEye size={22} stroke="var(--accent)" />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="font-grotesk" style={{ fontWeight: 700, fontSize: 16, letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Quem visualizou</div>
@@ -31,9 +32,15 @@ export function ViewsModal() {
           </button>
         </div>
         <div style={{ padding: '18px 22px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
+          {/* Deixa explícito de onde vem essa lista: é a ciência (visualização) do
+              comunicado desta publicação lá no portal Nexus — não é leitura do estudo aqui. */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '11px 13px', borderRadius: 12, background: 'var(--accent-soft)', border: '1px solid var(--accent)', color: 'var(--fg2)', fontSize: 12.5, lineHeight: 1.5 }}>
+            <IconEye size={16} stroke="var(--accent)" style={{ flexShrink: 0, marginTop: 1 }} />
+            <span>Estas são as pessoas que <b>visualizaram o comunicado</b> desta publicação no <b>Nexus</b> (deram ciência ao aviso).</span>
+          </div>
           {!viewsModal.data && <div style={{ color: 'var(--fg3)', fontSize: 14, textAlign: 'center', padding: '24px 0' }}>Carregando…</div>}
           {viewsModal.data && viewsModal.data.total === 0 && (
-            <div style={{ color: 'var(--fg3)', fontSize: 14, textAlign: 'center', padding: '24px 0' }}>Ainda ninguém visualizou este estudo.</div>
+            <div style={{ color: 'var(--fg3)', fontSize: 14, textAlign: 'center', padding: '24px 0' }}>Ainda ninguém visualizou o comunicado desta publicação no Nexus.</div>
           )}
           {viewsModal.data?.departments.map((g) => (
             <section key={g.department}>

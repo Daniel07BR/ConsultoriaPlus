@@ -19,6 +19,7 @@ export const IconRefresh = (p: P) => (<S {...p}><path d="M23 4v6h-6M1 20v-6h6" /
 export const IconHeart = (p: P) => (<S {...p}><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54z" /></S>);
 export const IconThumbsUp = (p: P) => (<S {...p}><path d="M7 22V11" /><path d="M2 13a2 2 0 0 1 2-2h3v11H4a2 2 0 0 1-2-2v-7z" /><path d="M7 11l4-8a2 2 0 0 1 3.6 1.3V9h5.4a2 2 0 0 1 2 2.3l-1.4 8.4A2 2 0 0 1 18.6 22H7" /></S>);
 export const IconComment = (p: P) => (<S {...p}><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z" /></S>);
+export const IconEye = (p: P) => (<S {...p}><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="3" /></S>);
 export const IconFile = (p: P) => (<S {...p}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></S>);
 export const IconLink = (p: P) => (<S {...p}><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1.5 1.5" /><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1.5-1.5" /></S>);
 export const IconSearch = (p: P) => (<S {...p}><circle cx="11" cy="11" r="7" /><path d="M21 21l-4-4" /></S>);

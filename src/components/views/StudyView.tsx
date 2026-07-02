@@ -2,7 +2,7 @@
 // Leitura de um estudo + interações (comentários/perguntas). Extraído (Fase 2).
 import { useEffect, useState } from 'react';
 import Avatar from '../Avatar';
-import { IconArrowLeft, IconThumbsUp, IconBookmark, IconX, IconPlay, IconExternal, IconQuestion } from '../icons';
+import { IconArrowLeft, IconEye, IconBookmark, IconX, IconPlay, IconExternal, IconQuestion } from '../icons';
 import { attIcon } from '../ui/attIcon';
 import { LikesHoverButton } from '../ui/LikesHoverButton';
 import { miniBtn } from '../ui/formKit';
@@ -83,7 +83,7 @@ export function StudyView() {
         )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 26, paddingTop: 22, borderTop: '1px solid var(--border)' }}>
           <LikesHoverButton studyId={s.id} count={s.likes} liked={s.liked} onToggle={() => toggleLike(s.id)} label="curtidas" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontWeight: 700, fontSize: 14, color: s.liked ? 'var(--accent)' : 'var(--fg2)' }} />
-          <button onClick={() => openViews(s.id, s.title)} title="Marcar como visualizado e ver quem viu" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontWeight: 700, fontSize: 14, color: s.viewed ? 'var(--accent)' : 'var(--fg2)' }}><IconThumbsUp size={19} fill={s.viewed ? 'var(--accent)' : 'none'} stroke={s.viewed ? 'var(--accent)' : 'currentColor'} />{s.views} visualizações</button>
+          <button onClick={() => openViews(s.id, s.title)} title="Ver quem visualizou o comunicado desta publicação no Nexus" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontWeight: 700, fontSize: 14, color: s.viewed ? 'var(--accent)' : 'var(--fg2)' }}><IconEye size={19} stroke={s.viewed ? 'var(--accent)' : 'currentColor'} />{s.views} visualizações</button>
           <button onClick={() => toggleSave(s.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 16px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontWeight: 700, fontSize: 14, color: s.saved ? 'var(--accent)' : 'var(--fg2)' }}><IconBookmark size={18} fill={s.saved ? 'var(--accent)' : 'none'} stroke={s.saved ? 'var(--accent)' : 'currentColor'} />{s.saved ? 'Salvo' : 'Salvar estudo'}</button>
           {(canEditStudy || canDeleteStudy) && (
             <>
