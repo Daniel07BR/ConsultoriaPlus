@@ -1,7 +1,7 @@
 import 'server-only';
 import { NextResponse } from 'next/server';
 import { getCurrentUser, type CurrentUser } from './auth';
-import { canSeeGestaoStudy } from './roles';
+import { canSeeStudy } from './roles';
 
 /** Carrega o usuário ou devolve 401. Use: const me = await requireUser(); if (me instanceof NextResponse) return me; */
 export async function requireUser(): Promise<CurrentUser | NextResponse> {
@@ -30,10 +30,10 @@ export function ensureFeedAccess(me: CurrentUser, feed: string): NextResponse | 
 }
 
 /**
- * Guarda por PUBLICAÇÃO no Feed de Gestão: além do acesso ao feed, respeita a
- * segmentação por departamento (departamentos ocultos da publicação). O autor sempre
- * acessa o próprio post; Diretoria/Consultoria/Admin veem tudo; um Gestor/Sub cujo
- * departamento foi ocultado leva 403. Para o feed de estudos delega ao ensureFeedAccess.
+ * Guarda por PUBLICAÇÃO: além do acesso ao feed (gestão exige canGestao), respeita a
+ * segmentação por departamento (departamentos ocultos da publicação) nos DOIS feeds. O
+ * autor sempre acessa o próprio post; Consultoria/Diretoria/Admin (staff) veem tudo; um
+ * cliente cujo departamento foi ocultado leva 403.
  * Use após carregar `{ feed, authorId, excludedDepartments }`:
  *   const denied = ensureStudyAccess(me, study); if (denied) return denied;
  */
@@ -41,9 +41,10 @@ export function ensureStudyAccess(
   me: CurrentUser,
   study: { feed: string; authorId: string; excludedDepartments?: string[] | null },
 ): NextResponse | null {
-  if (study.feed !== 'gestao') return ensureFeedAccess(me, study.feed);
-  if (!me.canGestao) return NextResponse.json({ error: 'sem acesso ao feed de gestão' }, { status: 403 });
+  if (study.feed === 'gestao' && !me.canGestao) {
+    return NextResponse.json({ error: 'sem acesso ao feed de gestão' }, { status: 403 });
+  }
   if (study.authorId === me.user.id) return null; // autor sempre vê o próprio
-  if (canSeeGestaoStudy(me.role, me.user.cargo, me.user.department, study.excludedDepartments)) return null;
+  if (canSeeStudy(me.role, me.user.department, study.excludedDepartments)) return null;
   return NextResponse.json({ error: 'publicação não disponível para o seu departamento' }, { status: 403 });
 }

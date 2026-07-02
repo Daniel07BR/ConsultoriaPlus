@@ -59,8 +59,8 @@ export async function POST(req: NextRequest) {
   const readTime = `${Math.max(1, Math.round(bodyText.length / 800))} min`;
 
   const coverImage = typeof b?.coverImage === 'string' && b.coverImage.startsWith('data:image/') ? b.coverImage : null;
-  // Audiência por departamento (só Feed de Gestão): departamentos ocultos desta publicação.
-  const excludedDepartments = feed === 'gestao' && Array.isArray(b?.excludedDepartments)
+  // Audiência por departamento (estudos e gestão): departamentos ocultos desta publicação.
+  const excludedDepartments = Array.isArray(b?.excludedDepartments)
     ? b.excludedDepartments.map((d: unknown) => String(d).trim()).filter(Boolean)
     : [];
 
@@ -107,6 +107,7 @@ export async function POST(req: NextRequest) {
       authorNexusUserId: me.user.nexusUserId,
       title,
       body: paras.join('\n\n'),
+      excludedDepartments, // não avisa clientes dos deptos ocultos
       category,
     });
   }

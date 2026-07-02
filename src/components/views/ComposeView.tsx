@@ -7,19 +7,20 @@ import { linkKind, linkLabel } from '@/lib/present';
 import { useApp } from '../AppProvider';
 
 export function ComposeView() {
-  const { compose, feed, firstCat, cancelCompose, editingStudyId, setCompose, coverUploading, uploadCover, setCatManagerOpen, catNames, addComposeLink, publishStudy, gestaoDepartments } = useApp();
+  const { compose, feed, firstCat, cancelCompose, editingStudyId, setCompose, coverUploading, uploadCover, setCatManagerOpen, catNames, addComposeLink, publishStudy, feedDepartments } = useApp();
   const selectedCat = compose.category || firstCat;
   const isGestao = feed === 'gestao';
-  // Audiência por departamento (Feed de Gestão): um depto está OCULTO se estiver em
-  // compose.excludedDepts. Por padrão nenhum está oculto → todos os líderes recebem.
+  // Audiência por departamento: um depto está OCULTO se estiver em compose.excludedDepts.
+  // Gestão: por padrão nenhum oculto (todos os líderes recebem). Estudos: alguns setores
+  // já vêm desativados por padrão (TI, Recepção, Imóveis, Marketing, Programação).
   const excludedSet = new Set(compose.excludedDepts);
   const toggleDept = (name: string) => setCompose((c) => {
     const set = new Set(c.excludedDepts);
     if (set.has(name)) set.delete(name); else set.add(name);
     return { ...c, excludedDepts: [...set] };
   });
-  const setAllDepts = (hidden: boolean) => setCompose((c) => ({ ...c, excludedDepts: hidden ? gestaoDepartments.map((d) => d.name) : [] }));
-  const hiddenNames = gestaoDepartments.filter((d) => excludedSet.has(d.name)).map((d) => d.name);
+  const setAllDepts = (hidden: boolean) => setCompose((c) => ({ ...c, excludedDepts: hidden ? feedDepartments.map((d) => d.name) : [] }));
+  const hiddenNames = feedDepartments.filter((d) => excludedSet.has(d.name)).map((d) => d.name);
   const heading = editingStudyId
     ? (isGestao ? 'Editar publicação' : 'Editar estudo')
     : (isGestao ? 'Nova publicação de gestão' : 'Publicar novo estudo');
@@ -85,12 +86,12 @@ export function ComposeView() {
           <select value={selectedCat} onChange={(e) => setCompose({ ...compose, category: e.target.value })} style={{ ...inputStyle(), cursor: 'pointer' }}>{catNames.map((c) => <option key={c} value={c}>{c}</option>)}</select>
         </div>
 
-        {/* Audiência por departamento — só no Feed de Gestão */}
-        {isGestao && (
+        {/* Audiência por departamento — nos dois feeds */}
+        {(
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'wrap', gap: 8 }}>
               <label style={{ ...labelStyle, marginBottom: 0 }}>Quem recebe <span style={{ fontWeight: 500, color: 'var(--fg3)' }}>(por departamento)</span></label>
-              {gestaoDepartments.length > 0 && (
+              {feedDepartments.length > 0 && (
                 <div style={{ display: 'inline-flex', gap: 6 }}>
                   <button type="button" onClick={() => setAllDepts(false)} style={{ padding: '4px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--fg2)', fontWeight: 700, fontSize: 11.5, cursor: 'pointer' }}>Marcar todos</button>
                   <button type="button" onClick={() => setAllDepts(true)} style={{ padding: '4px 10px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--fg2)', fontWeight: 700, fontSize: 11.5, cursor: 'pointer' }}>Desmarcar todos</button>
@@ -98,15 +99,19 @@ export function ComposeView() {
               )}
             </div>
             <div style={{ fontSize: 12.5, color: 'var(--fg3)', marginBottom: 12 }}>
-              Por padrão a publicação vai para <b>toda a liderança</b>. Desmarque um departamento para <b>ocultá-lo</b>: o Gestor e o Sub-encarregado daquele setor não recebem o alerta nem conseguem ver esta publicação. Diretoria, Consultoria e T.I sempre veem.
+              {isGestao ? (
+                <>Por padrão a publicação vai para <b>toda a liderança</b>. Desmarque um departamento para <b>ocultá-lo</b>: o Gestor e o Sub-encarregado daquele setor não recebem o alerta nem conseguem ver esta publicação. Diretoria, Consultoria e T.I sempre veem.</>
+              ) : (
+                <>Marque os departamentos que devem <b>receber</b> este estudo. Alguns setores já vêm <b>desativados por padrão</b> (ex.: TI, Recepção, Imóveis, Marketing, Programação) — ative para incluí-los. Os desativados não recebem o alerta nem veem o estudo; Consultoria e Diretoria sempre veem.</>
+              )}
             </div>
-            {gestaoDepartments.length === 0 ? (
+            {feedDepartments.length === 0 ? (
               <div style={{ fontSize: 13, color: 'var(--fg3)', padding: '12px 14px', borderRadius: 12, border: '1px dashed var(--border)', background: 'var(--surface2)' }}>
-                Nenhum departamento com Gestor/Sub-encarregado cadastrado — a publicação vai para toda a liderança.
+                {isGestao ? 'Nenhum departamento com Gestor/Sub-encarregado cadastrado — a publicação vai para toda a liderança.' : 'Nenhum departamento com clientes cadastrado — o estudo vai para todos.'}
               </div>
             ) : (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 9 }}>
-                {gestaoDepartments.map((d) => {
+                {feedDepartments.map((d) => {
                   const on = !excludedSet.has(d.name); // marcado = recebe
                   return (
                     <button

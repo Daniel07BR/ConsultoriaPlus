@@ -47,8 +47,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const paras = bodyText ? bodyText.split(/\n{1,}/).map((p: string) => p.trim()).filter(Boolean) : ['(sem conteúdo)'];
   const readTime = `${Math.max(1, Math.round(bodyText.length / 800))} min`;
   const coverImage = typeof b?.coverImage === 'string' && b.coverImage.startsWith('data:image/') ? b.coverImage : b?.coverImage === null ? null : undefined;
-  // Audiência por departamento (só Feed de Gestão): departamentos ocultos desta publicação.
-  const excludedDepartments = study.feed === 'gestao' && Array.isArray(b?.excludedDepartments)
+  // Audiência por departamento (estudos e gestão): departamentos ocultos desta publicação.
+  const excludedDepartments = Array.isArray(b?.excludedDepartments)
     ? b.excludedDepartments.map((d: unknown) => String(d).trim()).filter(Boolean)
     : undefined;
 

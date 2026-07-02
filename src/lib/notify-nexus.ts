@@ -6,7 +6,7 @@
 import 'server-only';
 import { prisma } from './db';
 import { pushAnnouncementToNexus } from './nexus';
-import { canSeeGestaoStudy, effectiveRole } from './roles';
+import { canSeeGestaoStudy, canSeeStudy, effectiveRole } from './roles';
 
 function excerpt(body: string, max = 240): string {
   const first = (body.split('\n\n')[0] || '').trim();
@@ -37,12 +37,14 @@ interface NotifyInput {
  */
 export async function notifyNexusAboutStudy(input: NotifyInput): Promise<void> {
   try {
-    // Destinatários: AppUsers ativos com nexus_user_id (= quem tem acesso ao sistema).
+    // Destinatários: AppUsers ativos, respeitando a segmentação por departamento —
+    // clientes de um depto oculto NÃO são avisados; staff (consultor/both) recebe sempre.
     const recipients = await prisma.appUser.findMany({
       where: { status: 'active' },
-      select: { nexusUserId: true },
+      select: { nexusUserId: true, baseRole: true, roleOverride: true, department: true },
     });
     const recipientEmployeeIds = recipients
+      .filter((u) => canSeeStudy(effectiveRole(u.baseRole, u.roleOverride), u.department, input.excludedDepartments))
       .map((r) => r.nexusUserId)
       .filter((id): id is string => !!id);
 

@@ -1,7 +1,7 @@
 import 'server-only';
 import { prisma } from './db';
 import type { CurrentUser } from './auth';
-import { isDeptScopedGestao } from './roles';
+import { isDeptFiltered } from './roles';
 
 // ---------- Estudos ----------
 
@@ -23,10 +23,10 @@ export async function listStudies(
     // Feed: separa estudos x gestão (o acesso ao feed de gestão é checado na rota).
     where.feed = opts.feed === 'gestao' ? 'gestao' : 'estudos';
   }
-  // Segmentação por departamento (Feed de Gestão): Gestor/Sub só enxergam publicações
+  // Segmentação por departamento (estudos e gestão): o cliente só enxerga publicações
   // que NÃO ocultam o seu departamento (o autor sempre vê o próprio post). Consultoria/
-  // diretoria/admin não são filtrados. Em estudos o campo é sempre vazio → sem efeito.
-  if (isDeptScopedGestao(me.role, me.user.cargo)) {
+  // diretoria/admin (staff) não são filtrados. Publicação sem deptos ocultos → todos veem.
+  if (isDeptFiltered(me.role)) {
     const dept = (me.user.department ?? '').trim();
     where.AND = [{ OR: [{ authorId: me.user.id }, { NOT: { excludedDepartments: { has: dept } } }] }];
   }

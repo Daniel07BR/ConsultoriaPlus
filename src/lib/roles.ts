@@ -79,10 +79,36 @@ export function isDeptScopedGestao(role: AppRole, cargo?: string | null): boolea
 }
 
 /**
- * Pode ver uma publicação de gestão, considerando os departamentos ocultos dela.
- * Regra: precisa de acesso ao feed; se a publicação oculta o SEU departamento e você
- * é Gestor/Sub (restrito por depto), não vê. Autor sempre vê o próprio post — trate
- * isso na camada de rota (esta função não conhece o autor).
+ * Filtrado por departamento? Vale p/ os DOIS feeds: só o papel cliente (não-staff) é
+ * afetado pela segmentação por departamento de uma publicação. Consultor/both
+ * (Consultoria/Diretoria/Admin) NÃO são filtrados — veem tudo. No feed de gestão, o
+ * único cliente com acesso é o Gestor/Sub; no feed de estudos, é qualquer cliente.
+ */
+export function isDeptFiltered(role: AppRole): boolean {
+  return role !== 'consultor' && role !== 'both';
+}
+
+/**
+ * Pode ver uma publicação considerando os departamentos OCULTOS dela (vale p/ estudos
+ * e gestão). NÃO checa acesso ao feed (isso é separado) nem autoria (o autor sempre vê
+ * o próprio — trate na rota). Cliente do depto oculto → não vê; staff sempre vê.
+ */
+export function canSeeStudy(
+  role: AppRole,
+  department: string | null | undefined,
+  excludedDepartments: string[] | null | undefined,
+): boolean {
+  const excluded = (excludedDepartments ?? []).map((d) => d.trim().toLowerCase()).filter(Boolean);
+  if (excluded.length === 0) return true;
+  if (!isDeptFiltered(role)) return true; // consultor/both veem tudo
+  const d = (department ?? '').trim().toLowerCase();
+  return !excluded.includes(d);
+}
+
+/**
+ * Pode ver uma publicação de GESTÃO: precisa de acesso ao feed + passar no filtro de
+ * departamento. Autor sempre vê o próprio (tratar na rota). Usado no filtro de
+ * destinatários do comunicado de gestão.
  */
 export function canSeeGestaoStudy(
   role: AppRole,
@@ -91,11 +117,7 @@ export function canSeeGestaoStudy(
   excludedDepartments: string[] | null | undefined,
 ): boolean {
   if (!canAccessGestao(role, cargo)) return false;
-  const excluded = (excludedDepartments ?? []).map((d) => d.trim().toLowerCase()).filter(Boolean);
-  if (excluded.length === 0) return true;
-  if (!isDeptScopedGestao(role, cargo)) return true; // consultoria/diretoria/admin veem tudo
-  const d = (department ?? '').trim().toLowerCase();
-  return !excluded.includes(d);
+  return canSeeStudy(role, department, excludedDepartments);
 }
 
 /** Pode alternar entre as duas visões? */

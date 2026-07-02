@@ -94,7 +94,8 @@ function useAppState() {
   const [compose, setCompose] = useState(blankCompose());
   const [coverUploading, setCoverUploading] = useState(false);
   const [gestaoCategories, setGestaoCategories] = useState<CategoryT[]>([]); // categorias próprias do Feed de Gestão
-  const [gestaoDepartments, setGestaoDepartments] = useState<{ name: string; count: number }[]>([]); // deptos com Gestor/Sub (toggles de audiência)
+  const [feedDepartments, setFeedDepartments] = useState<{ name: string; count: number }[]>([]); // deptos (toggles de audiência) do feed atual
+  const [feedDefaultExcluded, setFeedDefaultExcluded] = useState<string[]>([]); // deptos desativados por padrão (estudos)
   const [embed, setEmbed] = useState<{ url: string; kind: string; title: string } | null>(null);
   const [catManagerOpen, setCatManagerOpen] = useState(false);
   const [editingStudyId, setEditingStudyId] = useState<string | null>(null);
@@ -151,11 +152,15 @@ function useAppState() {
   const loadGestaoCategories = useCallback(async () => {
     const d = await getJSON<{ categories: CategoryT[] }>('/api/categories?feed=gestao');
     setGestaoCategories(d.categories);
-    // Departamentos com Gestor/Sub — alimentam os toggles de audiência da publicação.
+  }, []);
+
+  // Departamentos (toggles de audiência) do feed corrente + os desativados por padrão.
+  const loadFeedDepartments = useCallback(async (f: string) => {
     try {
-      const dep = await getJSON<{ departments: { name: string; count: number }[] }>('/api/gestao/departments');
-      setGestaoDepartments(dep.departments);
-    } catch { /* sem acesso/erro: mantém a lista atual */ }
+      const dep = await getJSON<{ departments: { name: string; count: number }[]; defaultExcluded: string[] }>(`/api/feed-departments?feed=${f === 'gestao' ? 'gestao' : 'estudos'}`);
+      setFeedDepartments(dep.departments);
+      setFeedDefaultExcluded(dep.defaultExcluded || []);
+    } catch { /* sem permissão/erro: mantém a lista atual */ }
   }, []);
 
   const loadTickets = useCallback(async (status: string) => {
@@ -246,6 +251,8 @@ function useAppState() {
     else if (view === 'notifications' || view === 'profile') { loadNotifications(); if (view === 'notifications') loadOpenQuestions(); }
     // Categorias do Feed de Gestão: carrega ao entrar em qualquer tela de gestão.
     if (feed === 'gestao') loadGestaoCategories();
+    // Deptos p/ os toggles de audiência (feed atual): nas telas de feed/publicar.
+    if (view === 'feed' || view === 'compose' || view === 'gestao' || view === 'gestaoCompose') loadFeedDepartments(feed);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, uid]);
 
@@ -674,7 +681,8 @@ function useAppState() {
       go('gestaoCompose');
     } else if (isConsultor) {
       setEditingStudyId(null);
-      setCompose(blankCompose());
+      // Feed de estudos: alguns setores já vêm DESATIVADOS por padrão (o consultor ativa se quiser).
+      setCompose({ ...blankCompose(), excludedDepts: feedDefaultExcluded });
       go('compose');
     } else startNewTicket();
   };
@@ -709,7 +717,7 @@ function useAppState() {
     ticketFilter, setTicketFilter, ticketTab, setTicketTab, historyTickets, setHistoryTickets, historyTotal, hist, setHist,
     closing, setClosing, ratingHover, setRatingHover,
     videos, setVideos, videoTab, setVideoTab, videoFormOpen, setVideoFormOpen, editingVideo, setEditingVideo, syncingVideos, setSyncingVideos,
-    compose, setCompose, coverUploading, setCoverUploading, embed, setEmbed, catManagerOpen, setCatManagerOpen, gestaoDepartments,
+    compose, setCompose, coverUploading, setCoverUploading, embed, setEmbed, catManagerOpen, setCatManagerOpen, feedDepartments,
     editingStudyId, setEditingStudyId, editingComment, setEditingComment, editingMessage, setEditingMessage,
     newTicket, setNewTicket, refQuery, setRefQuery, refResults, setRefResults, refSelected, setRefSelected, refSearching, setRefSearching,
     commentDraft, setCommentDraft, commentIsQuestion, setCommentIsQuestion, ticketDraft, setTicketDraft,
